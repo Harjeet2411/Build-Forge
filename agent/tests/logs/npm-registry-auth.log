@@ -1,0 +1,21 @@
+[Pipeline] stage
+[Pipeline] { (Install dependencies)
++ npm install --force
+npm warn using --force Recommended protections disabled.
+npm warn ERESOLVE overriding peer dependency
+npm warn While resolving: @mui/styles@5.16.7
+npm warn Could not resolve dependency:
+npm warn peer react@"^17.0.0" from @mui/styles@5.16.7
+npm warn registry No auth for URI, but auth present for scoped registry.
+npm warn registry
+npm warn registry URI: https://acme-111111111111.d.codeartifact.ap-south-1.amazonaws.com/npm/acme-website-monitoring/@acme/website-monitoring-sdk/-/website-monitoring-sdk-1.0.25.tgz
+npm warn registry Scoped Registry Key: //acme-222222222222.d.codeartifact.ap-south-1.amazonaws.com/npm/Acme-Private-Repo/
+npm warn deprecated eslint@8.57.1: This version is no longer supported.
+npm error code E401
+npm error Unable to authenticate, your authentication token seems to be invalid.
+npm error To correct this please try logging in again with:
+npm error   npm login
+[Pipeline] }
+Stage "Push build to S3 bucket" skipped due to earlier failure(s)
+ERROR: script returned exit code 1
+Finished: FAILURE

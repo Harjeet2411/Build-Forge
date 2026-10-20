@@ -1,0 +1,10 @@
+[Pipeline] stage
+[Pipeline] { (Create target group)
+[Pipeline] sh
++ aws elbv2 create-target-group --name app-prod-tg --protocol HTTP --vpc-id vpc-0123456789abcdef0 --port 80 --health-check-protocol HTTP --health-check-path //healthCheck --target-type instance --region ap-south-1 --query TargetGroups[0].TargetGroupArn --output text
+
+An error occurred (DuplicateTargetGroupName) when calling the CreateTargetGroup operation: A target group with the same name 'app-prod-tg' exists, but with different settings
+[Pipeline] }
+[Pipeline] // stage
+ERROR: script returned exit code 254
+Finished: FAILURE

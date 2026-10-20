@@ -1,0 +1,23 @@
+[Unit]
+Description=Build Forge (Jenkins failure analysis with a Kiro agent, incident logs, stats)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=buildforge
+Group=buildforge
+WorkingDirectory=/opt/buildforge/agent
+EnvironmentFile=/etc/buildforge/buildforge.env
+ExecStart=/usr/bin/python3 -m buildforge_agent serve
+Restart=always
+RestartSec=5
+StateDirectory=buildforge
+LogsDirectory=buildforge
+LogsDirectoryMode=0750
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/buildforge /var/log/buildforge
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
