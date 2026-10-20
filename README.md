@@ -56,7 +56,7 @@ server + agent definition** on the machine where the AI CLI is logged in (Python
 ## Quick start
 
 ```bash
-git clone https://github.com/<your-account>/build-forge.git && cd build-forge
+git clone https://github.com/Harjeet2411/Build-Forge.git && cd Build-Forge
 ```
 
 **1. On the Kiro machine**

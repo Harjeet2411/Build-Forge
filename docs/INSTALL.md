@@ -28,7 +28,7 @@ install`), and the right to edit the Kiro instance's security group. Get the **w
 machines (clone it, or copy a release archive and unzip it) and work from its top folder:
 
 ```bash
-git clone https://github.com/<your-account>/build-forge.git && cd build-forge
+git clone https://github.com/Harjeet2411/Build-Forge.git && cd Build-Forge
 ```
 
 ---
@@ -50,7 +50,7 @@ env file in step A3.
 ### A2. Install the runner, the MCP server and the agent
 
 ```bash
-cd ~/build-forge
+cd ~/Build-Forge
 sudo RUN_USER=ubuntu bash kiro-runner/deploy/install.sh
 ```
 
@@ -115,7 +115,7 @@ group (or its private IP `/32`). Never open it to the internet: it is plain HTTP
 ### B1. Install the Build Forge service
 
 ```bash
-cd ~/build-forge
+cd ~/Build-Forge
 sudo bash agent/deploy/install.sh
 ```
 

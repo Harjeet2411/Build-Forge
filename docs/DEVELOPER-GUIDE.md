@@ -74,7 +74,7 @@ Outcomes (admin filters): **fixed-next** (the next build of the job passed), **f
 ### Source layout
 
 ```
-build-forge/
+Build-Forge/
 ├── plugin/        build.sh (writes buildforge.hpi), src/main/java/io/jenkins/plugins/buildforge/ (BuildForgeListener, BuildForgeAction,
 │                  BuildForgeAdmin, BuildForgeConfig, ServiceClient), src/main/resources/ (Jelly views),
 │                  src/main/webapp/ (buildforge.js, buildforge.css, images/buildforge.svg)
@@ -97,7 +97,7 @@ build-forge/
 - The **whole** repository on both machines (`git clone`, or a release archive). Partial copies cause stale-file problems.
 
 ```bash
-git clone https://github.com/<your-account>/build-forge.git && cd build-forge
+git clone https://github.com/Harjeet2411/Build-Forge.git && cd Build-Forge
 ```
 
 ### 2.2 Kiro instance
