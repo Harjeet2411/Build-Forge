@@ -1,0 +1,10 @@
+<?jelly escape-by-default='true'?>
+<!-- On the build page. The action only exists on failed builds, so the panel only ever appears there. -->
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:t="/lib/hudson">
+  <j:if test="${it.showOnBuildPage}">
+    <t:summary icon="/plugin/buildforge/images/buildforge.svg">
+      <j:set var="bfInSummary" value="true"/>
+      <st:include page="panel.jelly"/>
+    </t:summary>
+  </j:if>
+</j:jelly>

@@ -1,0 +1,15 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
+  <l:layout title="Build Forge" type="one-column">
+    <l:main-panel>
+      <link rel="stylesheet" href="${rootURL}/plugin/buildforge/buildforge.css"/>
+      <div class="bf-admin"
+           data-bf-base="${rootURL}/buildforge/"
+           data-bf-active="${it.active}"
+           data-bf-logo="${rootURL}/plugin/buildforge/images/buildforge.svg"
+           data-crumb-header="${h.getCrumbRequestField()}"
+           data-crumb-value="${h.getCrumb(request)}"/>
+      <script src="${rootURL}/plugin/buildforge/buildforge.js" type="text/javascript"/>
+    </l:main-panel>
+  </l:layout>
+</j:jelly>

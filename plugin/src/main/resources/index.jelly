@@ -1,0 +1,6 @@
+<?jelly escape-by-default='true'?>
+<div>
+  Build Forge mends broken pipelines: every failed build is analysed by a Kiro agent, the error observed and the proposed
+  fix are shown under the failed stage, a Rebuild button appears when a rebuild can fix it, and /buildforge/admin lists
+  every failure with stats and incident logs.
+</div>

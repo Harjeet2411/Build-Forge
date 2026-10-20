@@ -1,0 +1,34 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+  <f:section title="Build Forge">
+    <f:entry title="Enabled" field="enabled">
+      <f:checkbox default="true"/>
+    </f:entry>
+    <f:entry title="Build Forge service URL" field="serviceUrl" description="Where the Build Forge service listens on this server, normally http://127.0.0.1:8791">
+      <f:textbox default="http://127.0.0.1:8791"/>
+    </f:entry>
+    <f:entry title="Shared secret" field="secret" description="Same value as BF_SHARED_SECRET in /etc/buildforge/buildforge.env">
+      <f:password/>
+    </f:entry>
+    <f:entry title="Show the Build Forge panel on failed builds" field="showOnBuildPage">
+      <f:checkbox default="true"/>
+    </f:entry>
+    <f:advanced>
+      <f:entry title="Let every signed-in user open /buildforge/admin" field="adminForAllUsers" description="Off: Jenkins administrators only">
+        <f:checkbox/>
+      </f:entry>
+      <f:entry title="Also analyse UNSTABLE builds" field="includeUnstable">
+        <f:checkbox/>
+      </f:entry>
+      <f:entry title="Max console log sent (KB)" field="maxLogKb" description="The end of the log is sent; Build Forge cuts out the failing stage before asking Kiro">
+        <f:number default="2048" min="64"/>
+      </f:entry>
+      <f:entry title="Only jobs matching (regex)" field="jobInclude" description="Full job name, e.g. ^(payments|kra)/ . Empty = all jobs">
+        <f:textbox/>
+      </f:entry>
+      <f:entry title="Skip jobs matching (regex)" field="jobExclude">
+        <f:textbox/>
+      </f:entry>
+    </f:advanced>
+  </f:section>
+</j:jelly>

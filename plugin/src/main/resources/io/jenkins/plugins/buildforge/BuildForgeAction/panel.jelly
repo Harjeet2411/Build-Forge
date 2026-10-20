@@ -1,0 +1,16 @@
+<?jelly escape-by-default='true'?>
+<!-- The Build Forge panel. Included from summary.jelly (build page) and index.jelly (sidebar page). -->
+<j:jelly xmlns:j="jelly:core">
+  <link rel="stylesheet" href="${rootURL}/plugin/buildforge/buildforge.css"/>
+  <div class="bf-panel"
+       data-bf-run="${rootURL}/${it.run.url}"
+       data-bf-analysis="${rootURL}/${it.run.url}buildforge/analysis"
+       data-bf-rebuild="${rootURL}/${it.run.url}buildforge/rebuild"
+       data-bf-can-rebuild="${it.canRebuild}"
+       data-bf-admin="${it.canSeeAdmin ? rootURL + '/buildforge/admin' : ''}"
+       data-bf-in-summary="${bfInSummary}"
+       data-bf-logo="${rootURL}/plugin/buildforge/images/buildforge.svg"
+       data-crumb-header="${h.getCrumbRequestField()}"
+       data-crumb-value="${h.getCrumb(request)}"/>
+  <script src="${rootURL}/plugin/buildforge/buildforge.js" type="text/javascript"/>
+</j:jelly>
