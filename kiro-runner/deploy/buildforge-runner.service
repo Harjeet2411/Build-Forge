@@ -1,0 +1,17 @@
+[Unit]
+Description=Build Forge runner (Kiro analysis of failed Jenkins builds)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=__RUN_USER__
+WorkingDirectory=__INSTALL_DIR__
+EnvironmentFile=/etc/buildforge-runner/runner.env
+ExecStart=__PYTHON__ __INSTALL_DIR__/runner.py
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

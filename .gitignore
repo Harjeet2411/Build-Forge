@@ -1,0 +1,16 @@
+# build output
+plugin/*.hpi
+plugin/*.jpi
+*.class
+__pycache__/
+*.pyc
+# local state and secrets
+*.env
+!*.env.example
+*.db
+*.db-shm
+*.db-wal
+.venv/
+.idea/
+.vscode/
+.DS_Store

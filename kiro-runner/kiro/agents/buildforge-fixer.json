@@ -1,0 +1,17 @@
+{
+  "name": "buildforge-fixer",
+  "description": "Reads the error of one failed Jenkins build, finds the cause and proposes the fix. Answers through one MCP tool; no other tools.",
+  "model": "claude-opus-4.5",
+  "prompt": "file://__INSTALL_DIR__/kiro/prompts/buildforge-fixer.md",
+  "includeMcpJson": false,
+  "mcpServers": {
+    "buildforge": {
+      "command": "__PYTHON__",
+      "args": ["__INSTALL_DIR__/buildforge_mcp.py"],
+      "env": { "BF_RESULT_FILE": "${BF_RESULT_FILE}" },
+      "timeout": 30000
+    }
+  },
+  "tools": ["@buildforge"],
+  "allowedTools": ["@buildforge/submit_analysis"]
+}
