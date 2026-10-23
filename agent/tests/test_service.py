@@ -112,10 +112,7 @@ class Base(unittest.TestCase):
                 "build_url": f"https://jenkins.example.com/job/{job.replace('/', '/job/')}/{build}/",
                 "timestamp": time.time() * 1000, "duration_ms": 1000, **extra}
         out = self.e.submit(body)
-        self.e._pool.submit(lambda: None).result()  # noqa: SLF001 - wait for the queued analysis
-        deadline = time.time() + 10
-        while time.time() < deadline and self.e.store.incident(out["id"])["status"] in ("queued", "analysing"):
-            time.sleep(0.02)
+        self.assertTrue(self.e.wait_idle(15))  # the analysis, the incident log, the alert and the deck are done
         return self.e.store.incident(out["id"])
 
 
@@ -184,11 +181,29 @@ class AnalysisTests(Base):
         self.assertIn(inc["id"], json.dumps(card))
         self.assertEqual(card["actions"][1]["url"], f"https://jenkins.example.com/buildforge/admin#{inc['id']}")
 
-    def test_job_filter_skips_without_an_incident(self):
+    def test_excluded_job_is_recorded_but_not_analysed(self):
         self.s.job_exclude = re.compile("^sandbox/")
-        out = self.e.submit({"job": "sandbox/x", "build": 1, "log": DNS_LOG})
-        self.assertEqual(out["skipped"], "job filter")
+        out = self.e.submit({"job": "sandbox/x", "build": 1, "log": DNS_LOG, "result": "FAILURE"})
+        self.assertEqual(out["status"], "skipped")
+        inc = self.e.store.incident(out["id"])
+        self.assertEqual((inc["status"], inc["stage"]), ("skipped", "Checkout"))
+        self.assertIn("excluded from analysis", inc["error"])
+        self.assertEqual(StubRunner.seen, [])  # Kiro never saw it
+        self.assertEqual(self.e.stats({})["failed_builds"], 1)  # ...but the dashboard counts it
+        self.assertEqual(self.e.stats({})["excluded"], 1)
+
+    def test_plugin_can_exclude_a_failure_from_analysis(self):
+        out = self.e.submit({"job": "a", "build": 1, "log": DNS_LOG, "analyse": False})
+        self.assertEqual(out["status"], "skipped")
         self.assertEqual(StubRunner.seen, [])
+
+    def test_an_excluded_failure_can_still_be_analysed_on_request(self):
+        out = self.e.submit({"job": "a", "build": 1, "log": DNS_LOG, "analyse": False})
+        self.e.reanalyze(out["id"])
+        deadline = time.time() + 10
+        while time.time() < deadline and self.e.store.incident(out["id"])["status"] != "done":
+            time.sleep(0.05)
+        self.assertEqual(self.e.store.incident(out["id"])["status"], "done")
 
 
 class OutcomeTests(Base):
@@ -205,7 +220,7 @@ class OutcomeTests(Base):
         md = (self.s.log_dir / "incidents" / f"{inc['id']}.md").read_text()
         self.assertIn("Fixed on the next build (#8, a Build Forge rebuild)", md)
         self.assertIn("by alice: #8 -> SUCCESS", md)
-        st = self.e.stats(30)
+        st = self.e.stats({})
         self.assertEqual((st["fixed_next_build"], st["pipelines_fixed_next_build"], st["rebuilds_succeeded"]), (1, 1, 1))
 
     def test_fixed_later_and_out_of_order_builds(self):
@@ -214,20 +229,20 @@ class OutcomeTests(Base):
         self.e.build_result("team/app", 8, "FAILURE", None, time.time())
         inc = self.e.store.incident(inc["id"])
         self.assertEqual((inc["next_build"], inc["next_result"], inc["fixed_build"]), (8, "FAILURE", 10))
-        st = self.e.stats(30)
+        st = self.e.stats({})
         self.assertEqual((st["fixed_next_build"], st["fixed_later"], st["still_failing"]), (0, 1, 0))
 
     def test_stats_and_listing(self):
         self.fail_build(job="a", build=1)
         self.fail_build(job="b", build=3, log=(LOGS / "aws-duplicate-target-group.log").read_text())
         self.e.build_result("a", 2, "SUCCESS", None, time.time())
-        st = self.e.stats(30)
+        st = self.e.stats({})
         self.assertEqual((st["failed_builds"], st["failed_pipelines"], st["analysed"], st["still_failing"]), (2, 2, 2, 1))
         self.assertEqual(st["by_category"], {"transient": 1, "configuration": 1})
         self.assertEqual(st["rebuild_suggested"], 1)
-        total, rows = self.e.store.list_incidents(outcome="open")
+        total, rows = self.e.store.list_incidents({"outcome": "open"})
         self.assertEqual((total, rows[0]["job"]), (1, "b"))
-        total, rows = self.e.store.list_incidents(q="duplicate")
+        total, rows = self.e.store.list_incidents({"q": "duplicate"})
         self.assertEqual(total, 1)
 
     def test_prune_removes_old_incidents_and_their_files(self):

@@ -186,6 +186,12 @@ overall, plus "came back after a rebuild"), list with filters, stats, prune.
 incidents.py: write incidents/<id>.md and append incidents.jsonl; the Markdown has pipeline, build, build URL, failed stage,
 node, error observed, proposed solution, assessment, stats table, rebuilds and the error excerpt; rewrite it when the outcome changes.
 
+deck.py + export.py (v2.1): deck.py keeps one card per error signature in a `solutions` table (draft/approved/retired, never
+overwrite a human edit), matches a failure by exact fingerprint or by IDF-weighted word similarity (thresholds 0.55 fallback, 0.85
+first), and is used by the engine when Kiro is unavailable (default) or before Kiro (BF_DECK_MODE=first, approved cards only).
+export.py writes CSV (BOM, formula guard), XLSX (raw OOXML) and PDF with the standard library only. store.where() is the one
+filter used by the list, the stats and the exports; the engine records skipped (excluded) failures too.
+
 kiro.py: client for the runner's POST /analyze with the secret and a timeout; map HTTP errors to a RunnerError with a readable message.
 
 engine.py: submit(failure) creates the incident (idempotent per job+build), cuts the log, fingerprints the error, queues a
@@ -215,7 +221,11 @@ Write a Jenkins plugin (no Maven; classes compiled by plugin/build.sh with javac
   proxies for stats, incidents, incident, reanalyze.
 - Panel UI (vanilla JS + CSS, no frameworks): stage strip with the failed stage marked, "Failed in stage X" card, error observed,
   proposed solution (render the Markdown safely), badges (category, severity, confidence, signature), entry id, Rebuild button
-  only when allowed, a "rebuild in progress" and a "fixed in #N" state. Admin UI: stat cards, charts, tables, filters, detail drawer.
+  only when allowed, a "rebuild in progress" and a "fixed in #N" state. Admin UI (v2.1): ALL failures listed (the job regexes
+  only decide what is analysed; excluded ones show as "Excluded"), search, period, wildcard pipeline picker, category, outcome,
+  sortable columns, detail drawer, stat cards and charts that animate, live updates by polling /pulse every 4 s, report download
+  (CSV/XLSX/PDF, admin only, same filters as the screen), and a Solutions deck tab (cards per error signature, draft/approved/
+  retired, edit, import/export, "try an error"). Use Jenkins CSS variables so it follows the theme.
 ```
 
 *Check:* `bash plugin/build.sh /path/to/jenkins.war` produces `buildforge.hpi`; Jenkins lists the plugin; a failed build shows the panel.

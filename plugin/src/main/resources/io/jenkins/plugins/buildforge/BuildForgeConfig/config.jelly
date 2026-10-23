@@ -23,10 +23,10 @@
       <f:entry title="Max console log sent (KB)" field="maxLogKb" description="The end of the log is sent; Build Forge cuts out the failing stage before asking Kiro">
         <f:number default="2048" min="64"/>
       </f:entry>
-      <f:entry title="Only jobs matching (regex)" field="jobInclude" description="Full job name, e.g. ^(payments|kra)/ . Empty = all jobs">
+      <f:entry title="Only analyse jobs matching (regex)" field="jobInclude" description="Full job name, e.g. ^(payments|kra)/ . Empty = all jobs. Failures of other jobs still appear on the dashboard, they just are not analysed.">
         <f:textbox/>
       </f:entry>
-      <f:entry title="Skip jobs matching (regex)" field="jobExclude">
+      <f:entry title="Do not analyse jobs matching (regex)" field="jobExclude" description="These failures are listed on the dashboard but Kiro does not analyse them and they get no Build Forge panel.">
         <f:textbox/>
       </f:entry>
     </f:advanced>

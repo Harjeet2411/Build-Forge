@@ -97,9 +97,17 @@ newline-delimited JSON-RPC on stdio (protocol `2025-03-26` or newer, tools only)
 | `POST /api/v2/rebuild-event` | plugin | `{job, build, phase: "requested"\|"started", user, new_build?}` |
 | `POST /api/v2/reanalyze` | plugin (admin page) | `{id}`: queue the analysis again |
 | `GET /api/v2/analysis?job=&build=` | plugin (panel) | What the panel shows: status, stages, analysis, outcome, rebuilds |
-| `GET /api/v2/incidents?days=&limit=&offset=&q=&category=&outcome=` | plugin (admin) | Paged list |
+| `GET /api/v2/incidents?…&sort=&dir=&limit=&offset=` | plugin (admin) | Paged list. Filters (shared by every call marked †): `days` or `from`/`to` (epoch s, `to` exclusive), `q` (search), `jobs` (`\|`-separated names, `*` wildcards), `category`, `outcome`, `analysis` (`analysed`/`skipped`), `rebuild`, `result`. Sort keys: `when`, `job`, `build`, `category`, `signature`, `outcome`, `seen` |
 | `GET /api/v2/incident?id=` | plugin (admin) | Full detail including the log text |
-| `GET /api/v2/stats?days=` | plugin (admin) | The numbers behind the stat cards and charts |
+| `GET /api/v2/stats` † (+ `tz`) | plugin (admin) | The numbers behind the stat cards and charts; `tz` (minutes east of UTC) puts the day buckets in the viewer's time |
+| `GET /api/v2/pipelines` † | plugin (admin) | Pipeline names for the picker, with failure counts |
+| `GET /api/v2/pulse?since=` | plugin (admin) | `{rev, now, changes[]}`: a counter that moves on every write, and the entries changed since `since`. The dashboard polls it every 4 s |
+| `GET /api/v2/export?format=csv\|xlsx\|pdf&scope=list\|summary\|full` † | plugin (admin) | A report for the current filters (and `sort`/`dir`), returned as a download |
+| `GET /api/v2/solutions?q=&status=&category=&sort=&dir=` | plugin (admin) | The solutions deck: cards with sightings, pipelines and how often the next build went green |
+| `GET /api/v2/solution?id=` | plugin (admin) | One card with the incidents it covers |
+| `GET /api/v2/solutions/match?text=&min=&all=1` | plugin (admin) | Best card for an error text (without `all=1` only usable cards) |
+| `GET /api/v2/solutions/export?format=json\|csv\|xlsx\|pdf&status=` | plugin (admin) | The deck as a download; JSON can be imported on another server |
+| `POST /api/v2/solution/update`, `/solution/create`, `/solutions/import` | plugin (admin) | Edit a card (title, answer, status, notes, rebuild advice), add one by hand, or import a JSON export |
 
 ### 3.4 Plugin (Jenkins URLs)
 
@@ -108,7 +116,8 @@ newline-delimited JSON-RPC on stdio (protocol `2025-03-26` or newer, tools only)
 | `/job/<name>/<n>/buildforge/analysis` | GET | Proxy of `/api/v2/analysis` for the panel; needs Read |
 | `/job/<name>/<n>/buildforge/rebuild` | POST + crumb | Needs Build on the job; refused unless the analysis says `rebuild_can_fix`; queues the job with the same parameters and a `RebuildCause` |
 | `/buildforge/admin` | GET | Admin page; needs Administer (or Read when the option "every signed-in user" is on) |
-| `/buildforge/stats`, `/incidents`, `/incident`, `/reanalyze` | GET / POST | Proxies of the service for the admin page |
+| `/buildforge/stats`, `/incidents`, `/incident`, `/pipelines`, `/pulse`, `/export`, `/solutions`, `/solution`, `/solutionMatch`, `/solutionsExport` | GET | Proxies of the service for the admin page. Only whitelisted query parameters are forwarded; the browser never talks to the service. Reports and the deck export need the same permission as the page (Administer by default) |
+| `/buildforge/reanalyze`, `/solutionUpdate`, `/solutionCreate`, `/solutionsImport` | POST + crumb | Proxies for re-analysis and for editing the deck |
 
 ## 4. Data model
 
@@ -120,6 +129,11 @@ SQLite file `buildforge.db` (schema in `agent/buildforge_agent/store.py`):
   `rebuild_can_fix`), timings, and the outcome fields `next_build`, `next_result`, `next_is_rebuild`, `fixed_build`, `fixed_at`.
 - `builds`: every finished build (green ones too), so a later success can be matched to an earlier failure.
 - `rebuilds`: each Build Forge rebuild: who asked, the new build number and its result.
+- `solutions`: the solutions deck, one card (`SD-XXXXXX`) per kind of error: signature, title, category, the answer, whether a
+  rebuild can fix it, the normalised error lines it was written for, the fingerprints it covers, `status`
+  (`draft`/`approved`/`retired`), `source` (`auto`/`manual`/`import`) and notes.
+
+An incident has the status `skipped` when its job is excluded from analysis. It is stored and listed like any other failure.
 
 Files on disk (`BF_LOG_DIR`): `incidents/<id>.md`, a human-readable report rewritten when the outcome changes (see
 [sample-incident.md](sample-incident.md)); and `incidents.jsonl`, one JSON line per event (`analysed`, `analysis_failed`,
@@ -145,6 +159,29 @@ running. The plugin re-checks the analysis and the user's Build permission on th
 
 **Under the failed stage**: the plugin cannot inject content into the Pipeline Graph View, so the panel draws its own stage
 strip (from the service's parsed stages) with the failed stage marked and the analysis attached beneath it.
+
+**Every failure is recorded, only some are analysed**: the plugin sends every failed build with an `analyse` flag (its job
+regexes) and the service applies `BF_JOB_INCLUDE`/`BF_JOB_EXCLUDE` as well. Analysed failures are queued for Kiro; the rest are
+stored as `skipped` and never leave Jenkins. **Analyse again** works on a skipped entry. Period filters use the failure time
+(`COALESCE(failed_at, created)`), so a month report is about when builds failed, not when they were analysed.
+
+**One filter, three consumers** (`store.where`): the table, the stat cards/charts and the exports all take the same filter
+dict, so a report always matches what the dashboard shows. Exports are built with the standard library only: CSV with a BOM
+(opens correctly in Excel) and a guard against formulas, XLSX written as raw OOXML, and a PDF written by hand (capped at 3000
+rows; CSV/XLSX at 50000).
+
+**Live updates**: every store write bumps a counter (`rev`). The page polls `/pulse` every 4 s (paused in hidden tabs); when
+`rev` moved it fetches the changes, flashes the rows, shows a toast and refreshes the numbers. Polling was chosen over
+server-sent events because it works behind any proxy and needs no long-lived connections in Jetty.
+
+**Solutions deck** (`deck.py`): when Kiro's analysis is stored, `Deck.record` files it under its error signature. A repeat
+of the same error adds a sighting to the same card; a similar error (same signature, or the same error fingerprint) joins it.
+Matching a new failure: an exact fingerprint hit wins; otherwise the words of the normalised error lines are compared with
+every usable card (IDF-weighted Jaccard, so rare words count more). A card is usable when it is approved, or a draft seen at
+least `BF_DECK_MIN_SEEN` times; retired cards are never used. Modes: `fallback` (default) answers only when Kiro is
+unreachable or fails, with a threshold of 0.55; `first` answers before Kiro for a match of 0.85 or more from approved cards
+only. A card edited by a person is never overwritten by Kiro's later answers. A rebuild is never suggested by a card if the
+same error came back after a rebuild. The panel says "From the solutions deck" with a link to the card, and the incident log records which card answered.
 
 ## 6. Security model
 
@@ -177,4 +214,6 @@ strip (from the service's parsed stages) with the failed stage marked and the an
 - **Fields or categories**: `kiro-runner/buildforge_mcp.py`, `engine.ANALYSIS_FIELDS`, `incidents.py`, `buildforge.js`.
 - **Notifications**: `agent/buildforge_agent/teams.py` (an adaptive-card post to a Workflows webhook); add another sender next to it
   and call it from `Engine._maybe_notify`.
-- **Which logs are analysed**: `BF_JOB_INCLUDE` / `BF_JOB_EXCLUDE`, or the plugin's job filters.
+- **Which logs are analysed**: `BF_JOB_INCLUDE` / `BF_JOB_EXCLUDE`, or the plugin's job filters (analysis only; all failures are recorded).
+- **Report formats**: `agent/buildforge_agent/export.py` (`build()` and `build_deck()`; add a writer next to `to_csv`/`to_xlsx`/`to_pdf`).
+- **Deck matching or modes**: `agent/buildforge_agent/deck.py` (`match`, `answer`) and `Engine._finish_from_deck`.

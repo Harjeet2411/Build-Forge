@@ -21,8 +21,9 @@ import net.sf.json.JSONObject;
 
 /**
  * The global hook: runs for every build of every job (freestyle, pipeline, multibranch) without touching any
- * Jenkinsfile. A failed build gets the Build Forge panel and its log goes to the Build Forge service; every other completed
- * build is reported too, so Build Forge knows when a failure was fixed on the next build.
+ * Jenkinsfile. Every failed build is reported to the Build Forge service (so the dashboard lists all of them); a failed
+ * build of a job that is not excluded from analysis also gets the Build Forge panel. Every other completed build is
+ * reported too, so Build Forge knows when a failure was fixed on the next build.
  */
 @Extension
 public class BuildForgeListener extends RunListener<Run<?, ?>> {
@@ -50,18 +51,17 @@ public class BuildForgeListener extends RunListener<Run<?, ?>> {
         if (cfg == null || !cfg.isActive()) {
             return;
         }
-        String job = run.getParent().getFullName();
-        if (!cfg.jobAllowed(job)) {
-            return;
-        }
+        // Every failure goes to the dashboard. The job filters in Manage Jenkins only decide whether Kiro analyses it.
+        boolean analyse = cfg.jobAllowed(run.getParent().getFullName());
         Result result = run.getResult();
         boolean failed = result == Result.FAILURE || (cfg.isIncludeUnstable() && result == Result.UNSTABLE);
         JSONObject payload = base(run);
+        payload.put("analyse", analyse);
         if (!failed) {
             Computer.threadPoolForRemoting.submit(() -> send("/api/v2/build-result", run.getFullDisplayName(), payload));
             return;
         }
-        if (run.getAction(BuildForgeAction.class) == null) {
+        if (analyse && run.getAction(BuildForgeAction.class) == null) {
             run.addAction(new BuildForgeAction());
             try {
                 run.save();

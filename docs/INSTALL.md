@@ -216,6 +216,21 @@ Save.
 ---
 
 
+## Using the dashboard, the reports and the solutions deck
+
+Open **Build Forge** in the Jenkins sidebar (`/buildforge/admin`, needs Administer).
+
+- **Failures tab**: every failed build. Search (press `/`), pick a period (presets, a month, or a custom range), pipelines
+  (type to filter; `payments/*` selects a whole folder), category, outcome, analysed or excluded, rebuild. Click a column to sort,
+  click a row for the entry. Jobs matching the exclude regex are listed as "Excluded"; **Analyse again** on one sends it to Kiro.
+- **Live**: the page checks for changes every 4 seconds; the **Live** button pauses it.
+- **Export**: choose CSV, XLSX or PDF and *list*, *summary* or *both*. The report uses the filters on screen, so set the month and
+  the pipelines first. The first rows of the file repeat the filters used.
+- **Solutions deck tab**: one card per kind of error. Cards start as `draft`; a draft is used once its error was seen
+  `BF_DECK_MIN_SEEN` times. **Approve** a card after checking its answer; edit it if Kiro's wording needs fixing (edited cards are
+  never overwritten). **Try an error** shows which card would answer a pasted error. The deck answers failures only when Kiro
+  is unavailable, unless `BF_DECK_MODE=first`. After a few months of data, review the cards and consider `first` for approved ones.
+
 ## Settings reference
 
 `/etc/buildforge/buildforge.env` (Jenkins server, restart `buildforge` after a change):
@@ -232,7 +247,10 @@ Save.
 | `BF_SEND` | `errors` | `errors` = only the failed stage's output goes to Kiro; `full` = the end of the console log |
 | `BF_MAX_ERROR_CHARS` | 16000 | Upper limit of what is sent to Kiro |
 | `TEAMS_WEBHOOK_URL` / `BF_NOTIFY_ON` | - / `infrastructure` | Teams card for these categories (comma list, or `all`) |
-| `BF_JOB_INCLUDE` / `BF_JOB_EXCLUDE` | - | Regular expressions on the full job name |
+| `BF_JOB_INCLUDE` / `BF_JOB_EXCLUDE` | - | Regular expressions on the full job name. They only choose which failures **go to Kiro**; every failure is still recorded and shown on the dashboard as "Excluded" |
+| `BF_DECK_MODE` | `fallback` | Solutions deck: `off`, `fallback` (a card answers only when Kiro is unavailable) or `first` (a strong match answers before Kiro) |
+| `BF_DECK_THRESHOLD` / `BF_DECK_FIRST_THRESHOLD` | 0.55 / 0.85 | Similarity (0-1) needed for a fallback answer / for answering first (approved cards only) |
+| `BF_DECK_MIN_SEEN` | 2 | A draft card is used once its error was seen this many times; approved cards are always used |
 
 `/etc/buildforge-runner/runner.env` (Kiro instance, restart `buildforge-runner` after a change):
 
@@ -266,7 +284,7 @@ applies from the next failure. The fields it must fill are fixed by the MCP tool
 ## Security notes
 
 - Only the failing stage's output and the parameter **names** leave Jenkins; parameter values never do. Jenkins masks
-  bound credentials in the console, but use `BF_JOB_EXCLUDE` for jobs whose logs must not go to Kiro.
+  bound credentials in the console, but use `BF_JOB_EXCLUDE` for jobs whose logs must not go to Kiro (they stay on the dashboard, but their log text is never sent).
 - The Kiro agent has exactly one tool, which only records its answer. Text in a log that tries to instruct it cannot
   make it do anything; the prompt also tells it to treat the log as untrusted evidence.
 - Rebuilds are never automatic. The button only exists when the agent said a rebuild can fix the failure, and Jenkins

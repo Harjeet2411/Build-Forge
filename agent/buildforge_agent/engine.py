@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from . import errors, kiro, teams
 from .config import Settings
+from .deck import Deck
 from .incidents import IncidentLog, fingerprint, new_id
 from .store import Store
 
@@ -37,8 +38,12 @@ class Engine:
         self.s = settings
         self.store = store
         self.logs = IncidentLog(settings.log_dir)
+        self.deck = Deck(store, settings.deck_mode, settings.deck_threshold, settings.deck_first_threshold,
+                         settings.deck_min_seen)
         self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="buildforge")
         self._outcome_lock = threading.Lock()
+        self._busy = threading.Condition()
+        self._active = 0  # analyses queued or running
 
     # failures -------------------------------------------------------------
     def submit(self, body: dict) -> dict:
@@ -48,8 +53,9 @@ class Engine:
         rebuild_of = int(body["rebuild_of"]) if str(body.get("rebuild_of") or "").isdigit() else None
         finished = (_seconds(body.get("timestamp")) or time.time()) + (_seconds(body.get("duration_ms")) or 0)
         self.build_result(job, build, result, rebuild_of, finished)
-        if not self.s.job_allowed(job):
-            return {"ok": True, "skipped": "job filter"}
+        # Every failure is recorded for the dashboard. The job filters (plugin and BF_JOB_INCLUDE / BF_JOB_EXCLUDE)
+        # only decide whether Kiro analyses it.
+        analyse = body.get("analyse") is not False and self.s.job_allowed(job)
         existing = self.store.incident_for(job, build)
         if existing:
             return {"ok": True, "id": existing["id"], "status": existing["status"], "duplicate": True}
@@ -60,7 +66,8 @@ class Engine:
         inc = {
             "id": new_id(),
             "job": job, "build": build, "build_url": body.get("build_url") or body.get("url"),
-            "result": result, "status": "queued",
+            "result": result, "status": "queued" if analyse else "skipped",
+            "error": None if analyse else "Not analysed: this pipeline is excluded from analysis (Build Forge job filter)",
             "stage": part["stage"], "node": part["node"] or body.get("node"),
             "stages": errors.stages(console, part["stage"]),
             "params": [str(p) for p in (body.get("params") or [])][:50],
@@ -73,10 +80,24 @@ class Engine:
         if not self.store.create_incident(inc):  # a retry raced us
             existing = self.store.incident_for(job, build)
             return {"ok": True, "id": existing["id"], "status": existing["status"], "duplicate": True}
+        if not analyse:
+            log.info("%s#%s: incident %s recorded, not analysed (job filter)", job, build, inc["id"])
+            self._write(self.store.incident(inc["id"]), "recorded")
+            return {"ok": True, "id": inc["id"], "status": "skipped"}
         log.info("%s#%s: incident %s (stage %s, %d of %d chars to Kiro)", job, build, inc["id"], inc["stage"],
                  len(excerpt), len(console))
-        self._pool.submit(self._safe_process, inc["id"])
+        self._queue(inc["id"])
         return {"ok": True, "id": inc["id"], "status": "queued"}
+
+    def _queue(self, inc_id: str) -> None:
+        with self._busy:
+            self._active += 1
+        self._pool.submit(self._safe_process, inc_id)
+
+    def wait_idle(self, timeout: float = 30.0) -> bool:
+        """Block until no analysis is queued or running (used by the tests and by a clean shutdown)."""
+        with self._busy:
+            return self._busy.wait_for(lambda: self._active == 0, timeout)
 
     def _safe_process(self, inc_id: str) -> None:
         try:
@@ -84,6 +105,10 @@ class Engine:
         except Exception:  # noqa: BLE001 - never lose the worker thread
             log.exception("analysis of %s crashed", inc_id)
             self.store.update_incident(inc_id, status="error", error="Build Forge crashed while analysing; see its log")
+        finally:
+            with self._busy:
+                self._active -= 1
+                self._busy.notify_all()
 
     def process(self, inc_id: str) -> None:
         inc = self.store.incident(inc_id)
@@ -95,21 +120,43 @@ class Engine:
         request = {"job": inc["job"], "build": inc["build"], "build_url": inc["build_url"], "stage": inc["stage"],
                    "node": inc["node"], "params": inc["params"] or [], "error": inc["excerpt"],
                    "history": {k: v for k, v in history.items() if k != "last_id"}}
-        try:
-            answer = kiro.analyze(self.s.runner_url, self.s.runner_secret, request, self.s.runner_timeout)
-            a = {k: answer["analysis"].get(k) for k in ANALYSIS_FIELDS if answer["analysis"].get(k) is not None}
-            self.store.update_incident(
-                inc_id, status="done", analysis=a, signature=a.get("signature"), category=a.get("category"),
-                rebuild_can_fix=1 if a.get("rebuild_can_fix") else 0, seconds=answer.get("seconds"), analysed_at=time.time(),
-                analysed_by=f"Kiro agent {answer.get('agent') or 'buildforge-fixer'}")
-            log.info("%s: %s, rebuild_can_fix=%s (%ss)", inc_id, a.get("category"), a.get("rebuild_can_fix"),
-                     answer.get("seconds"))
-        except kiro.RunnerError as exc:
-            log.warning("%s: %s", inc_id, exc)
-            self.store.update_incident(inc_id, status="error", error=str(exc), analysed_at=time.time())
+        from_deck = self.deck.answer(inc["excerpt"], inc["fingerprint"], history, first=True)
+        if from_deck:
+            self._finish_from_deck(inc_id, from_deck, 0.0)
+        else:
+            try:
+                answer = kiro.analyze(self.s.runner_url, self.s.runner_secret, request, self.s.runner_timeout)
+                a = {k: answer["analysis"].get(k) for k in ANALYSIS_FIELDS if answer["analysis"].get(k) is not None}
+                self.store.update_incident(
+                    inc_id, status="done", analysis=a, signature=a.get("signature"), category=a.get("category"),
+                    rebuild_can_fix=1 if a.get("rebuild_can_fix") else 0, seconds=answer.get("seconds"),
+                    analysed_at=time.time(), analysed_by=f"Kiro agent {answer.get('agent') or 'buildforge-fixer'}")
+                log.info("%s: %s, rebuild_can_fix=%s (%ss)", inc_id, a.get("category"), a.get("rebuild_can_fix"),
+                         answer.get("seconds"))
+            except kiro.RunnerError as exc:
+                log.warning("%s: %s", inc_id, exc)
+                fallback = self.deck.answer(inc["excerpt"], inc["fingerprint"], history)
+                if fallback:
+                    log.info("%s: Kiro unavailable, answered from the solutions deck (%s)", inc_id, fallback["deck_id"])
+                    self._finish_from_deck(inc_id, fallback, 0.0, kiro_error=str(exc))
+                else:
+                    self.store.update_incident(inc_id, status="error", error=str(exc), analysed_at=time.time())
         inc = self.store.incident(inc_id)
         self._write(inc, "analysed" if inc["status"] == "done" else "analysis_failed")
         self._maybe_notify(inc)
+        try:
+            self.deck.record(inc)
+        except Exception:  # noqa: BLE001 - the deck must never break an analysis
+            log.exception("could not file %s in the solutions deck", inc_id)
+
+    def _finish_from_deck(self, inc_id: str, analysis: dict, seconds: float, kiro_error: str | None = None) -> None:
+        if kiro_error:
+            analysis = dict(analysis, kiro_error=kiro_error[:300])
+        self.store.update_incident(
+            inc_id, status="done", analysis=analysis, signature=analysis.get("signature"),
+            category=analysis.get("category"), rebuild_can_fix=1 if analysis.get("rebuild_can_fix") else 0,
+            seconds=seconds, analysed_at=time.time(),
+            analysed_by=f"Solutions deck {analysis['deck_id']} ({round(analysis['deck_match'] * 100)}% match)")
 
     def _write(self, inc: dict, event: str | None = None, **extra) -> None:
         try:
@@ -137,14 +184,14 @@ class Engine:
             return {"error": "no such entry"}
         if inc["status"] in ("queued", "analysing"):
             return {"ok": True, "status": inc["status"]}
-        self.store.update_incident(inc_id, status="queued", error=None)
-        self._pool.submit(self._safe_process, inc_id)
+        self.store.update_incident(inc_id, status="queued", error=None)  # also lifts "excluded": a person asked
+        self._queue(inc_id)
         return {"ok": True, "status": "queued"}
 
     def resume_pending(self) -> None:
         for inc in self.store.pending():
             log.info("resuming analysis of %s", inc["id"])
-            self._pool.submit(self._safe_process, inc["id"])
+            self._queue(inc["id"])
 
     # outcomes -------------------------------------------------------------
     def build_result(self, job: str, build: int, result: str, rebuild_of: int | None, finished: float) -> None:
@@ -164,7 +211,7 @@ class Engine:
                     changes.update(fixed_build=build, fixed_at=finished)
                 if changes:
                     self.store.update_incident(inc["id"], **changes)
-                    if inc["status"] in ("done", "error"):
+                    if inc["status"] in ("done", "error", "skipped"):
                         self._write(self.store.incident(inc["id"]), "outcome", trigger_build=build,
                                     trigger_result=result)
 
@@ -175,7 +222,7 @@ class Engine:
             self.store.rebuild_started(job, origin, int(body["new_build"]))
         else:
             self.store.add_rebuild(inc and inc["id"], job, origin, str(body.get("user") or "?"))
-        if inc and inc["status"] in ("done", "error"):
+        if inc and inc["status"] in ("done", "error", "skipped"):
             self._write(self.store.incident(inc["id"]), "rebuild", phase=body.get("phase") or "requested",
                         user=body.get("user"), new_build=body.get("new_build"))
 
@@ -213,12 +260,11 @@ class Engine:
         inc["log_text"] = self.logs.read(inc_id)
         return inc
 
-    def stats(self, days: int) -> dict:
-        since = time.time() - days * 86400 if days > 0 else 0
-        out = self.store.stats(since)
-        out["days"] = days
+    def stats(self, f: dict, tz: int = 0) -> dict:
+        out = self.store.stats(f, tz)
         out["runner"] = self.s.runner_url
         out["log_dir"] = str(self.logs.dir)
+        out["deck_mode"] = self.deck.mode
         return out
 
     def prune(self) -> int:

@@ -78,7 +78,7 @@ Build-Forge/
 ├── plugin/        build.sh (writes buildforge.hpi), src/main/java/io/jenkins/plugins/buildforge/ (BuildForgeListener, BuildForgeAction,
 │                  BuildForgeAdmin, BuildForgeConfig, ServiceClient), src/main/resources/ (Jelly views),
 │                  src/main/webapp/ (buildforge.js, buildforge.css, images/buildforge.svg)
-├── agent/         buildforge_agent/ (server, engine, store, incidents, errors, kiro, teams, checks, config), deploy/, tests/
+├── agent/         buildforge_agent/ (server, engine, store, deck, export, incidents, errors, kiro, teams, checks, config), deploy/, tests/
 ├── kiro-runner/   runner.py, buildforge_mcp.py, kiro/agents/buildforge-fixer.json, kiro/prompts/buildforge-fixer.md, deploy/, tests/
 ├── docs/          INSTALL.md, DEVELOPER-GUIDE.md (this file), ARCHITECTURE.md, RECREATE-WITH-AI.md, screenshots, samples
 └── README.md
@@ -191,7 +191,7 @@ sudo tail -n 3 /var/log/buildforge/incidents.jsonl
 Run the tests (standard library only, no network, about 4 seconds):
 
 ```bash
-cd agent        && python3 -m unittest discover -s tests     # 15 tests: incidents, logs, outcomes, stats, HTTP API
+cd agent        && python3 -m unittest discover -s tests     # 44 tests: incidents, logs, outcomes, stats, filters, exports, deck, HTTP API
 cd kiro-runner  && python3 -m unittest discover -s tests     # 7 tests: runner + the real MCP server with a stand-in kiro-cli
 ```
 
@@ -229,7 +229,10 @@ contains one.
 | `BF_SEND` | `errors` | `errors` = only the failed stage's output goes to Kiro; `full` = the end of the console log |
 | `BF_MAX_ERROR_CHARS` | 16000 | Upper limit of what is sent to Kiro |
 | `TEAMS_WEBHOOK_URL`, `BF_NOTIFY_ON` | none, `infrastructure` | Teams card (Workflows webhook) for these categories (comma list or `all`) |
-| `BF_JOB_INCLUDE`, `BF_JOB_EXCLUDE` | none | Regular expressions on the full job name (`folder/job`) |
+| `BF_JOB_INCLUDE`, `BF_JOB_EXCLUDE` | none | Regular expressions on the full job name (`folder/job`). Only decide which failures are **analysed**; every failure is recorded and listed on the dashboard (status `skipped`, "Excluded") |
+| `BF_DECK_MODE` | `fallback` | `off`, `fallback` (deck answers when Kiro is unreachable or fails) or `first` (deck answers before Kiro for a very close match) |
+| `BF_DECK_THRESHOLD`, `BF_DECK_FIRST_THRESHOLD` | 0.55, 0.85 | Minimum similarity for a fallback answer, and for answering first (approved cards only) |
+| `BF_DECK_MIN_SEEN` | 2 | Sightings after which a draft card may be used (approved cards: immediately) |
 
 ### Runner: `/etc/buildforge-runner/runner.env` (restart `buildforge-runner` after a change)
 
@@ -405,7 +408,7 @@ you expect for the job.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Panel: "Waiting for Build Forge to receive this build" for long | The failure never reached the service: wrong secret, service down, job filtered, or plugin disabled | `journalctl -u buildforge -n 30`; Jenkins log for `Build Forge service answered 401`; compare secrets; check `BF_JOB_INCLUDE/EXCLUDE` |
+| Panel: "Waiting for Build Forge to receive this build" for long | The failure never reached the service: wrong secret, service down, or plugin disabled (a filtered job is still recorded, it only shows "Excluded from analysis") | `journalctl -u buildforge -n 30`; Jenkins log for `Build Forge service answered 401`; compare secrets |
 | Panel: "Build Forge has no record of this build" | Build failed before the plugin was installed, or the job is filtered | Expected for old builds; rebuild the job |
 | Panel: "Kiro could not analyse this failure: … unreachable" | Runner or network (above) | Fix the path, then **Analyse again** on the admin page |
 | `… HTTP 401` | Runner secret mismatch | Same value on both sides, restart both services |
@@ -434,7 +437,12 @@ you expect for the job.
 |---|---|---|
 | No Teams card | `TEAMS_WEBHOOK_URL` empty, or the category is not in `BF_NOTIFY_ON` | `python3 -m buildforge_agent check --teams`; set `BF_NOTIFY_ON=all` to test. check the flow's run history in Teams |
 | `/var/log/buildforge` or the DB grows | Retention set to 0, or many failing jobs | Lower `BF_RETENTION_DAYS`; pruning runs daily; use `BF_JOB_EXCLUDE` for noisy jobs |
-| A job's log must not go to Kiro | Secrets in console output | `BF_JOB_EXCLUDE=<regex>`; Jenkins masks bound credentials but not other secrets |
+| A job's log must not go to Kiro | Secrets in console output | `BF_JOB_EXCLUDE=<regex>` (the failure stays on the dashboard, its log is not sent); Jenkins masks bound credentials but not other secrets |
+| Dashboard shows a failure as "Excluded" and you want it analysed | The job matches the exclude regex | Open the entry and press **Analyse again**; or fix the regex (Manage Jenkins > System > Build Forge, or `BF_JOB_EXCLUDE`) |
+| Dashboard does not update by itself | The browser cannot reach `/buildforge/pulse` (a proxy that buffers or blocks it) or the page was left in a background tab | Open the browser console; `curl` the service's `/api/v2/pulse` (see 2.4); the page polls every 4 s and pauses in hidden tabs |
+| Export downloads an empty or error file | Filters match nothing, or the service is down | The first rows of the file repeat the filters used; check `journalctl -u buildforge` |
+| A deck card is never used | It is `draft` and seen fewer than `BF_DECK_MIN_SEEN` times, `retired`, or below the similarity threshold | Approve the card in the Solutions deck tab; test with `GET /api/v2/solutions/match?text=<error line>&all=1` |
+
 
 ---
 
@@ -449,7 +457,7 @@ you expect for the job.
   (the Markdown log). Add a test in `kiro-runner/tests/test_runner.py` and `agent/tests/test_service.py`.
 - **A new category:** add it to `CATEGORIES` in `buildforge_mcp.py`, describe it in the prompt, add a colour/label in
   `buildforge.js`/`buildforge.css`, and to the admin filter list.
-- **Which failures are analysed:** `BF_JOB_INCLUDE` / `BF_JOB_EXCLUDE`, or the plugin's job filters.
+- **Which failures are analysed:** `BF_JOB_INCLUDE` / `BF_JOB_EXCLUDE`, or the plugin's job filters (analysis only; the dashboard always lists everything).
 - **What leaves Jenkins:** only the failing stage's output (or, with `BF_SEND=full`, the log tail), the job and stage
   names, the node, and the parameter **names**. Never parameter values.
 - **The model:** `"model"` in `kiro/agents/buildforge-fixer.json` (installed copy: `~/.kiro/agents/`).

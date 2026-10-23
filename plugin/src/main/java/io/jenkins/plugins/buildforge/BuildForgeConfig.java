@@ -69,6 +69,7 @@ public class BuildForgeConfig extends GlobalConfiguration {
         return enabled && serviceUrl != null && !serviceUrl.isEmpty();
     }
 
+    /** Whether Kiro analyses failures of this job. Failures of every job are still recorded on the dashboard. */
     boolean jobAllowed(String fullName) {
         try {
             if (!jobInclude.isEmpty() && !Pattern.compile(jobInclude).matcher(fullName).find()) {

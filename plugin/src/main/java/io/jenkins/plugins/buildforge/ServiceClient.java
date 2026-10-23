@@ -64,6 +64,46 @@ final class ServiceClient {
         return new Reply(rsp.statusCode(), rsp.body());
     }
 
+    /** GET a file (a report) from the service and hand it to the browser as a download. */
+    static org.kohsuke.stapler.HttpResponse download(String pathAndQuery) {
+        try {
+            BuildForgeConfig cfg = BuildForgeConfig.get();
+            HttpRequest req = HttpRequest.newBuilder(URI.create(cfg.getServiceUrl() + pathAndQuery))
+                    .timeout(Duration.ofSeconds(180))
+                    .header("X-BuildForge-Secret", cfg.plainSecret())
+                    .GET()
+                    .build();
+            HttpResponse<byte[]> rsp = HTTP.send(req, HttpResponse.BodyHandlers.ofByteArray());
+            if (rsp.statusCode() != 200) {
+                String msg = new String(rsp.body(), StandardCharsets.UTF_8);
+                try {
+                    msg = JSONObject.fromObject(msg).optString("error", msg);
+                } catch (RuntimeException ignored) {
+                    // not JSON: pass the text on
+                }
+                return error(rsp.statusCode(), msg);
+            }
+            String type = rsp.headers().firstValue("Content-Type").orElse("application/octet-stream");
+            String disposition = rsp.headers().firstValue("Content-Disposition").orElse("attachment");
+            return new org.kohsuke.stapler.HttpResponse() {
+                @Override
+                public void generateResponse(StaplerRequest r, StaplerResponse out, Object node) throws IOException {
+                    out.setStatus(200);
+                    out.setContentType(type);
+                    out.setHeader("Content-Disposition", disposition);
+                    out.setHeader("Cache-Control", "no-store");
+                    out.setContentLength(rsp.body().length);
+                    out.getOutputStream().write(rsp.body());
+                }
+            };
+        } catch (IOException e) {
+            return error(502, "The Build Forge service is unreachable: " + e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return error(503, "interrupted");
+        }
+    }
+
     static String enc(String s) {
         return URLEncoder.encode(s == null ? "" : s, StandardCharsets.UTF_8);
     }

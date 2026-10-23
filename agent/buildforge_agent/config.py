@@ -12,6 +12,11 @@ def _int(name: str, default: int) -> int:
     return int(raw) if raw else default
 
 
+def _float(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    return float(raw) if raw else default
+
+
 def _regex(name: str) -> re.Pattern | None:
     raw = os.environ.get(name, "").strip()
     return re.compile(raw) if raw else None
@@ -36,6 +41,10 @@ class Settings:
     job_include: re.Pattern | None = None
     job_exclude: re.Pattern | None = None
     retention_days: int = 365                       # incidents older than this are pruned (0 = keep forever)
+    deck_mode: str = "fallback"                     # off | fallback (deck answers when Kiro can't) | first (deck before Kiro)
+    deck_threshold: float = 0.55                    # similarity needed for a deck answer when Kiro is unavailable
+    deck_first_threshold: float = 0.85              # ...and for answering before Kiro (approved cards only)
+    deck_min_seen: int = 2                          # a draft card is used once its error was seen this many times
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -57,6 +66,10 @@ class Settings:
             job_include=_regex("BF_JOB_INCLUDE"),
             job_exclude=_regex("BF_JOB_EXCLUDE"),
             retention_days=_int("BF_RETENTION_DAYS", 365),
+            deck_mode=os.environ.get("BF_DECK_MODE", "fallback").strip().lower() or "fallback",
+            deck_threshold=_float("BF_DECK_THRESHOLD", 0.55),
+            deck_first_threshold=_float("BF_DECK_FIRST_THRESHOLD", 0.85),
+            deck_min_seen=_int("BF_DECK_MIN_SEEN", 2),
         )
 
     def job_allowed(self, job: str) -> bool:

@@ -10,6 +10,7 @@
            data-crumb-header="${h.getCrumbRequestField()}"
            data-crumb-value="${h.getCrumb(request)}"/>
       <script src="${rootURL}/plugin/buildforge/buildforge.js" type="text/javascript"/>
+      <script src="${rootURL}/plugin/buildforge/buildforge-dashboard.js" type="text/javascript"/>
     </l:main-panel>
   </l:layout>
 </j:jelly>

@@ -47,6 +47,9 @@ def main() -> int:
     if args.cmd == "check":
         from .checks import run_checks
         return run_checks(engine, post_teams=args.teams, ask_kiro=not args.no_kiro)
+    n = engine.deck.backfill()
+    if n:
+        logging.getLogger("buildforge").info("solutions deck built from %d earlier analyses", n)
     engine.resume_pending()
     serve(engine)
     return 0

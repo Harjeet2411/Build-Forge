@@ -5,7 +5,8 @@
 Build Forge is a Jenkins add-on that analyses each failed build with an AI agent (Claude Opus 4.5 through the Kiro CLI),
 shows the error and the proposed fix **under the failed stage**, and offers a **Rebuild** button only when a rebuild with the
 same parameters can actually fix it. Every failure gets a unique entry id and an incident log on the Jenkins server, and an
-admin page shows every failed build plus stats such as *how many pipelines failed and were fixed on the next build*.
+dashboard shows **every** failed build plus stats such as *how many pipelines failed and were fixed on the next build*, and a
+**solutions deck** keeps the answers to recurring errors so they can still be suggested when the AI is not available.
 
 ![A failed build with the Build Forge panel and the Rebuild button](docs/screenshots/panel-rebuild-button.png)
 
@@ -19,12 +20,25 @@ admin page shows every failed build plus stats such as *how many pipelines faile
   permission. Nothing is ever rebuilt automatically.
 - **Unique entry per failure**, e.g. `BF-20261012-7RN2ZH`, and an incident log
   ([sample](docs/sample-incident.md)) with the build URL, written from the AI's answer. One JSON line per event for log shippers.
-- **Admin page** at `/buildforge/admin`: every failed build with filters and a detail view, failures per day, categories,
-  recurring errors, rebuilds and how many went green, median time to fix.
+- **Dashboard** at `/buildforge/admin`: every failed build (job include/exclude only controls what is *analysed*), with search,
+  period, pipeline (wildcards), category, outcome and rebuild filters, sortable columns, a detail drawer, failures per day,
+  categories, recurring errors, rebuilds and how many went green, median time to fix. It follows the Jenkins theme (light and
+  dark) and **updates live**: new failures slide in with a toast, numbers and charts animate.
+- **Reports** for admins in **CSV, XLSX or PDF**, for a month, any period or chosen pipelines, as a list, a summary or both. They
+  always match the filters on screen.
+- **Solutions deck**: every analysis is filed on a card per kind of error (how often, in which pipelines, how often the next
+  build went green). Review, edit and approve the cards. With no Kiro (or with `BF_DECK_MODE=first`, once you trust the deck) a
+  matching card answers the failure, and the build page says so. Export and import the deck as JSON, CSV, XLSX or PDF.
 - **Optional Teams alerts** for the categories you choose.
 - **No chat.** Analysis only, on failed builds only.
 
-![The admin page](docs/screenshots/admin.png)
+![The dashboard](docs/screenshots/dashboard.png)
+
+| | |
+|---|---|
+| ![Filters, wildcard pipeline picker and sorting](docs/screenshots/filters.png) | ![Report download](docs/screenshots/export.png) |
+| ![The solutions deck](docs/screenshots/solutions-deck.png) | ![A card of the deck](docs/screenshots/solution-card.png) |
+| ![An answer taken from the deck while Kiro was down](docs/screenshots/panel-from-deck.png) | ![Dark theme](docs/screenshots/dashboard-dark.png) |
 
 ## How it works
 
@@ -83,6 +97,11 @@ sudo cp plugin/buildforge.hpi /var/lib/jenkins/plugins/buildforge.jpi && sudo ch
 The full, annotated walkthrough with expected output, the security group step and the checks is in
 [docs/INSTALL.md](docs/INSTALL.md).
 
+## Upgrading
+
+See [CHANGELOG.md](CHANGELOG.md). In short: re-run `sudo bash agent/deploy/install.sh`, rebuild and copy the plugin, restart Jenkins
+(service and plugin are upgraded together). Your settings and data are kept.
+
 ## Documentation
 
 | Document | For |
@@ -104,7 +123,7 @@ docs/          Guides, screenshots, sample incident log
 ## Tests
 
 ```bash
-(cd agent       && python3 -m unittest discover -s tests)   # 15 tests: incidents, logs, outcomes, stats, HTTP API
+(cd agent       && python3 -m unittest discover -s tests)   # 44 tests: incidents, logs, outcomes, stats, filters, reports, deck, HTTP API
 (cd kiro-runner && python3 -m unittest discover -s tests)   # 7 tests: runner and the real MCP server with a stand-in CLI
 ```
 
