@@ -61,7 +61,7 @@ server + agent definition** on the machine where the AI CLI is logged in (Python
 
 ## Requirements
 
-- Jenkins 2.346 or newer (tested on 2.346.3 and 2.580.1), a JDK 11+ on the machine where you build the plugin.
+- Jenkins 2.346 or newer (tested on 2.346.3 and 2.580.1), a JDK on the machine where you build the plugin: JDK 11+ for older Jenkins, but **at least the Java your Jenkins runs on** for newer ones (Jenkins 2.5xx runs on Java 21, so use `openjdk-21-jdk-headless`).
 - A second machine with [Kiro CLI](https://kiro.dev) installed and logged in (or an API key), reachable from Jenkins on one TCP
   port. Don't use Kiro? The AI backend is replaceable, see [docs/RECREATE-WITH-AI.md](docs/RECREATE-WITH-AI.md#6-use-a-different-ai-backend).
 - Python 3.8+ on both machines. Nothing to `pip install`.

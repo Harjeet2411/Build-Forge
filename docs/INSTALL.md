@@ -156,7 +156,7 @@ OK   Kiro agent: transient, rebuild_can_fix=True, 41s: `git fetch origin` failed
 ### B3. Install the plugin
 
 ```bash
-# build the plugin against the war of YOUR Jenkins (needs a JDK 11+: sudo apt install openjdk-17-jdk-headless)
+# build the plugin against the war of YOUR Jenkins (needs a JDK at least as new as the Java Jenkins runs on: `java -version` tells you; for Java 21 use sudo apt install openjdk-21-jdk-headless)
 bash plugin/build.sh /usr/share/java/jenkins.war      # or wherever your jenkins.war is; writes plugin/buildforge.hpi
 sudo cp plugin/buildforge.hpi /var/lib/jenkins/plugins/buildforge.jpi
 sudo chown jenkins:jenkins /var/lib/jenkins/plugins/buildforge.jpi

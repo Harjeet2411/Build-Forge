@@ -13,7 +13,7 @@ if [ -z "$WAR" ]; then
   done
 fi
 [ -f "${WAR:-}" ] || { echo "jenkins.war not found; pass its path: ./build.sh /path/to/jenkins.war" >&2; exit 1; }
-command -v javac >/dev/null || { echo "javac not found: install a JDK 11+ (e.g. apt install openjdk-17-jdk-headless)" >&2; exit 1; }
+command -v javac >/dev/null || { echo "javac not found: install a JDK at least as new as the Java Jenkins runs on (e.g. apt install openjdk-21-jdk-headless)" >&2; exit 1; }
 
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 unzip -q -o "$WAR" 'WEB-INF/lib/*.jar' -d "$WORK/war"
@@ -23,11 +23,21 @@ CORE_VERSION="$(unzip -p "$WAR" META-INF/MANIFEST.MF | sed -n 's/^Jenkins-Versio
 CP="$WORK/war/WEB-INF/lib/*:$WORK/war/winstone.jar:$WORK/war/executable/winstone.jar"
 mkdir -p "$WORK/classes" "$WORK/hpi/WEB-INF/lib" "$WORK/hpi/META-INF"
 
-# Java 11 bytecode loads on every Jenkins from 2.346 on; newer cores are built for 17, so fall back.
-if ! javac -nowarn --release 11 -encoding UTF-8 -cp "$CP" -d "$WORK/classes" $(find src/main/java -name '*.java') 2>"$WORK/javac.log"; then
-  if grep -q "wrong version" "$WORK/javac.log"; then
+# Java 11 bytecode loads on every Jenkins from 2.346 on. Newer cores are built for a newer Java (the class file version in the
+# error: 61 = Java 17, 65 = Java 21), and javac can only read classes up to its own version, so those need a matching JDK.
+compile() { javac -nowarn --release "$1" -encoding UTF-8 -cp "$CP" -d "$WORK/classes" $(find src/main/java -name '*.java') 2>"$WORK/javac.log"; }
+if ! compile 11; then
+  NEED="$(sed -n 's/.*class file has wrong version \([0-9]*\)\..*/\1/p' "$WORK/javac.log" | sort -n | tail -1)"
+  if [ -n "$NEED" ]; then
+    NEED_JDK=$((NEED - 44)); HAVE_JDK="$(javac -version 2>&1 | sed -n 's/^javac \([0-9]*\).*/\1/p')"
+    if [ -n "$HAVE_JDK" ] && [ "$HAVE_JDK" -lt "$NEED_JDK" ]; then
+      echo "This Jenkins ($CORE_VERSION) is built for Java $NEED_JDK but javac here is Java $HAVE_JDK." >&2
+      echo "Install a JDK $NEED_JDK or newer (e.g. sudo apt install openjdk-$NEED_JDK-jdk-headless) and run this again" >&2
+      echo "(if several JDKs are installed: JAVA_HOME=/usr/lib/jvm/<jdk-$NEED_JDK> PATH=\$JAVA_HOME/bin:\$PATH bash build.sh ...)." >&2
+      exit 1
+    fi
     rm -rf "$WORK/classes"; mkdir -p "$WORK/classes"
-    javac -nowarn --release 17 -encoding UTF-8 -cp "$CP" -d "$WORK/classes" $(find src/main/java -name '*.java')
+    compile "$NEED_JDK" || { cat "$WORK/javac.log" >&2; exit 1; }
   else
     cat "$WORK/javac.log" >&2; exit 1
   fi

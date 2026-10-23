@@ -195,7 +195,7 @@ cd agent        && python3 -m unittest discover -s tests     # 44 tests: inciden
 cd kiro-runner  && python3 -m unittest discover -s tests     # 7 tests: runner + the real MCP server with a stand-in kiro-cli
 ```
 
-Build the plugin from source (JDK 11+ and a `jenkins.war`; no Maven, no internet):
+Build the plugin from source (a JDK at least as new as the Java your Jenkins runs on, e.g. 21 for current Jenkins, and a `jenkins.war`; no Maven, no internet):
 
 ```bash
 cd plugin && bash build.sh /path/to/jenkins.war      # writes plugin/buildforge.hpi
@@ -402,6 +402,7 @@ you expect for the job.
 | Kiro asks to log in / 502 right away | `kiro-cli` not logged in for the service user | `kiro-cli login` as that user, or `KIRO_API_KEY=` in `runner.env` |
 | `/mcp` shows the buildforge server failed | Python path or file missing in the agent JSON | Check `~/.kiro/agents/buildforge-fixer.json` points to existing `__PYTHON__` and `/opt/buildforge-runner/buildforge_mcp.py`; run the MCP test in 4.3 |
 | Kiro: model `claude-opus-4.5` unknown | Model id differs in your Kiro version | Copy the `"model"` value from a working agent file into `buildforge-fixer.json` |
+| `build.sh`: `bad class file ... wrong version 65.0, should be 61.0` | The JDK is older than the Java this Jenkins runs on (Jenkins 2.5xx = Java 21) | `sudo apt install openjdk-21-jdk-headless`, run again (`build.sh` now says this itself) |
 | Plugin does not appear after restart | File not named `.jpi`/wrong owner, or Jenkins older than 2.346 | `ls -l /var/lib/jenkins/plugins/buildforge.jpi`, owner `jenkins`; check the Jenkins log |
 
 ### Analysis problems
