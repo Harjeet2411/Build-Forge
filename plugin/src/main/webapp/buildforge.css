@@ -130,7 +130,7 @@ textarea.bf-input { width: 100%; resize: vertical; line-height: 1.45; font-famil
 .bf-wide #main-panel { padding-left: clamp(14px, 1.8vw, 32px); padding-right: clamp(14px, 1.8vw, 32px); }
 .bf-admin-root { max-width: none; }
 .bf-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 2px 0 14px; }
-.bf-top .bf-logo { width: 40px; height: 40px; border-radius: 11px; }
+.bf-top .bf-logo { width: 40px; height: 40px; border-radius: 0; }
 .bf-title { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.15; }
 .bf-tag { color: var(--bf-muted); font-size: 0.86rem; }
 .bf-top-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

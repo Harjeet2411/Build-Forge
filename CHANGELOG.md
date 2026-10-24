@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.1 - 2026-10-24
+
+- New logo: a brushed-steel diamond plate with rivets and a green gem-cut tick (docs/branding). Replaces the hexagon mark; the old
+  one is kept as `docs/branding/logo-ember-hex-alt.svg`.
+- Upgrade: build and copy the plugin only (`bash plugin/build.sh <jenkins.war>`, copy to `buildforge.jpi`, restart Jenkins). The
+  service is unchanged apart from its version number.
+
 ## 2.2.0 - 2026-10-24
 
 **Alerts (the bell)**

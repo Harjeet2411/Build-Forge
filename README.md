@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/branding/logo-a-ember-hex.svg" width="96" alt="Build Forge logo"></p>
+<p align="center"><img src="docs/branding/logo-steel-diamond.svg" width="96" alt="Build Forge logo"></p>
 
 # Build Forge
 

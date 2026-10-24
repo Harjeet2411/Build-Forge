@@ -93,7 +93,7 @@ class Handler(BaseHTTPRequestHandler):
         q = {k: v[0] for k, v in urllib.parse.parse_qs(url.query).items()}
         e = self.engine
         if url.path == "/healthz":
-            return self._send(200, {"ok": True, "version": "2.2.0", "runner": bool(e.s.runner_url),
+            return self._send(200, {"ok": True, "version": "2.2.1", "runner": bool(e.s.runner_url),
                                     "teams": bool(e.s.teams_webhook_url), "log_dir": str(e.logs.dir)})
         if not self._authorised():
             return self._send(401, {"error": "missing or wrong X-BuildForge-Secret"})
