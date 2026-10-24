@@ -84,6 +84,16 @@ def render(inc: dict, rebuilds: list[dict], recurrence: dict) -> str:
     ]
     if inc.get("rebuild_of"):
         out.append(f"| Rebuild of | #{inc['rebuild_of']} |")
+    trig = inc.get("triggered_by") or {}
+    if trig:
+        out.append(f"| Started by | {trig.get('name') or trig.get('id') or trig.get('kind')} |")
+    people = []
+    for c in inc.get("commits") or []:
+        who = c.get("author") or c.get("author_id")
+        if who and who not in people:
+            people.append(who)
+    if people:
+        out.append(f"| Commits by | {', '.join(people)} |")
     out += ["", "## Error observed", "", a.get("error_observed") or inc.get("error") or "(no analysis)", "",
             "## Proposed solution", "", a.get("proposed_solution") or "(no analysis)", "",
             "## Assessment", "",

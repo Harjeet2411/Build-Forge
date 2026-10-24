@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Build Forge">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#20263f"/><stop offset="1" stop-color="#0c101e"/></linearGradient>
+    <linearGradient id="em" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffc857"/><stop offset="0.55" stop-color="#ff8a3d"/><stop offset="1" stop-color="#ff4d4d"/></linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ff8a3d" stop-opacity="0.55"/><stop offset="1" stop-color="#ff8a3d" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#bg)"/>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="14.5" fill="none" stroke="#fff" stroke-opacity="0.09"/>
+  <circle cx="32" cy="32" r="17" fill="url(#glow)"/>
+  <path d="M32 14.5l15.2 8.75v17.5L32 49.5l-15.2-8.75v-17.5z" fill="none" stroke="url(#em)" stroke-width="3.4" stroke-linejoin="round"/>
+  <path d="M6 32h10.8M47.2 32H58" stroke="#8d97bd" stroke-width="2.6" stroke-linecap="round"/>
+  <circle cx="6.8" cy="32" r="2.2" fill="#8d97bd"/><circle cx="57.2" cy="32" r="2.2" fill="url(#em)"/>
+  <path d="M32 22.2c.9 4.7 3.1 6.9 7.8 7.8-4.7.9-6.9 3.1-7.8 7.8-.9-4.7-3.1-6.9-7.8-7.8 4.7-.9 6.9-3.1 7.8-7.8z" fill="url(#em)"/>
+</svg>

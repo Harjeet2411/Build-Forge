@@ -93,7 +93,7 @@ class Handler(BaseHTTPRequestHandler):
         q = {k: v[0] for k, v in urllib.parse.parse_qs(url.query).items()}
         e = self.engine
         if url.path == "/healthz":
-            return self._send(200, {"ok": True, "version": "2.1.0", "runner": bool(e.s.runner_url),
+            return self._send(200, {"ok": True, "version": "2.2.0", "runner": bool(e.s.runner_url),
                                     "teams": bool(e.s.teams_webhook_url), "log_dir": str(e.logs.dir)})
         if not self._authorised():
             return self._send(401, {"error": "missing or wrong X-BuildForge-Secret"})
@@ -121,6 +121,8 @@ class Handler(BaseHTTPRequestHandler):
                 data, ctype, name = export.build(e, parse_filters(q), q.get("format", "csv"), q.get("scope", "list"),
                                                  q.get("sort", "when"), q.get("dir", "desc"), tz_seconds(q))
                 return self._send_file(data, ctype, name)
+            if url.path == "/api/v2/alerts":
+                return self._send(200, e.alerts.list(q.get("user", ""), q.get("status", "open")))
             if url.path == "/api/v2/solutions":
                 total, rows, counts = e.deck.list(
                     q=q.get("q", ""), status=q.get("status", ""), category=q.get("category", ""),
@@ -156,6 +158,7 @@ class Handler(BaseHTTPRequestHandler):
                 rebuild_of = int(body["rebuild_of"]) if str(body.get("rebuild_of") or "").isdigit() else None
                 e.build_result(str(body["job"]), int(body["build"]), str(body.get("result") or "SUCCESS"),
                                rebuild_of, ts)
+                e.evaluate_alerts(str(body["job"]))
                 return self._send(200, {"ok": True})
             if path == "/api/v2/rebuild-event":
                 e.rebuild_event(body)
@@ -163,6 +166,14 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/v2/reanalyze":
                 out = e.reanalyze(str(body["id"]))
                 return self._send(404 if "error" in out else 202, out)
+            if path == "/api/v2/alerts/read":
+                n = e.alerts.mark_read(str(body.get("user") or ""), [str(x) for x in body.get("ids") or []],
+                                       bool(body.get("all")), bool(body.get("unread")))
+                return self._send(200, {"ok": True, "changed": n})
+            if path in ("/api/v2/alerts/dismiss", "/api/v2/alerts/restore"):
+                act = e.alerts.dismiss if path.endswith("dismiss") else e.alerts.restore
+                alert = act(str(body["id"]), str(body.get("user") or ""))
+                return self._send(200 if alert else 404, alert or {"error": "no such alert"})
             if path == "/api/v2/solution/update":
                 card = e.deck.update(str(body["id"]), body, str(body.get("user") or ""))
                 return self._send(200 if card else 404, card or {"error": "no such card"})

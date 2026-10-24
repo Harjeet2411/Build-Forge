@@ -191,7 +191,7 @@ sudo tail -n 3 /var/log/buildforge/incidents.jsonl
 Run the tests (standard library only, no network, about 4 seconds):
 
 ```bash
-cd agent        && python3 -m unittest discover -s tests     # 44 tests: incidents, logs, outcomes, stats, filters, exports, deck, HTTP API
+cd agent        && python3 -m unittest discover -s tests     # 59 tests: incidents, logs, outcomes, stats, filters, exports, deck, alerts, HTTP API
 cd kiro-runner  && python3 -m unittest discover -s tests     # 7 tests: runner + the real MCP server with a stand-in kiro-cli
 ```
 
@@ -233,6 +233,9 @@ contains one.
 | `BF_DECK_MODE` | `fallback` | `off`, `fallback` (deck answers when Kiro is unreachable or fails) or `first` (deck answers before Kiro for a very close match) |
 | `BF_DECK_THRESHOLD`, `BF_DECK_FIRST_THRESHOLD` | 0.55, 0.85 | Minimum similarity for a fallback answer, and for answering first (approved cards only) |
 | `BF_DECK_MIN_SEEN` | 2 | Sightings after which a draft card may be used (approved cards: immediately) |
+| `BF_ALERTS` | `on` | Alerts for pipelines that keep failing (the bell). `off` disables them |
+| `BF_ALERT_PROD_AFTER`, `BF_ALERT_UAT_AFTER`, `BF_ALERT_OTHER_AFTER` | 3, 5, 5 | Failed builds in a row that must be **exceeded** for a critical (production), high (UAT / staging) or low (other) alert |
+| `BF_ENV_PROD`, `BF_ENV_UAT` | built in | Regexes on the full pipeline name that classify it as production / UAT (case-insensitive; defaults know prod, prd, production, uat, staging, stage, stg, preprod) |
 
 ### Runner: `/etc/buildforge-runner/runner.env` (restart `buildforge-runner` after a change)
 
@@ -442,6 +445,9 @@ you expect for the job.
 | Dashboard shows a failure as "Excluded" and you want it analysed | The job matches the exclude regex | Open the entry and press **Analyse again**; or fix the regex (Manage Jenkins > System > Build Forge, or `BF_JOB_EXCLUDE`) |
 | Dashboard does not update by itself | The browser cannot reach `/buildforge/pulse` (a proxy that buffers or blocks it) or the page was left in a background tab | Open the browser console; `curl` the service's `/api/v2/pulse` (see 2.4); the page polls every 4 s and pauses in hidden tabs |
 | Export downloads an empty or error file | Filters match nothing, or the service is down | The first rows of the file repeat the filters used; check `journalctl -u buildforge` |
+| The bell shows no alert for a pipeline that keeps failing | The count is not above the limit (it needs MORE than 3 for production, 5 otherwise), the name is not recognised as production/UAT, a green or unreported build is in between, or `BF_ALERTS=off` | `curl -H "X-BuildForge-Secret: $S" 127.0.0.1:8791/api/v2/alerts?status=all`; check the pipeline name against `BF_ENV_PROD` / `BF_ENV_UAT`; aborted builds neither count nor reset the streak |
+| An alert says "No commit or user information was recorded" | The builds did not check out code through a Jenkins SCM step (a shell `git clone` leaves no change set) or the plugin is the old one | Use the SCM / `checkout` step; make sure the 2.2.0 plugin is installed |
+| A person has a name but no e-mail in an alert | Neither the Git plugin nor the Mailer plugin has an address for that commit author | Set the address on the Jenkins user (People > user > Configure) or use the person's Jenkins id |
 | A deck card is never used | It is `draft` and seen fewer than `BF_DECK_MIN_SEEN` times, `retired`, or below the similarity threshold | Approve the card in the Solutions deck tab; test with `GET /api/v2/solutions/match?text=<error line>&all=1` |
 
 

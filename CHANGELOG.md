@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.2.0 - 2026-10-24
+
+**Alerts (the bell)**
+- A bell on the dashboard lists pipelines that keep failing, with a live unread count, a toast and a ringing bell for new ones.
+  Critical: a production pipeline failed more than 3 builds in a row. High: UAT or staging, more than 5. Low: any other
+  pipeline, more than 5. One green build discards the alert. All limits and the production/UAT name patterns are settings.
+- Each alert says who started the failing builds and who committed the code (name, Jenkins id, e-mail when known), so an admin
+  knows whom to contact; an **Email** button opens a message with the facts filled in.
+- **Mark read** (per person), **Dismiss** (for everyone, until a green build), **Restore**.
+- The plugin now sends who started a failed build and its commit authors. The dashboard fills the whole browser window.
+- New logo (docs/branding has the concepts and how to switch).
+
+**Upgrade from 2.1**
+1. Same as 2.1: `sudo bash agent/deploy/install.sh` (the database gains two columns and two tables on start), then the new plugin
+   (`bash plugin/build.sh <jenkins.war>`, copy to `buildforge.jpi`, restart Jenkins). Service and plugin go together; the JDK that builds
+   the plugin must be at least as new as the Java Jenkins runs on.
+2. Optional: the `BF_ALERT*` and `BF_ENV_*` settings from `agent/agent.env.example`. Alerts for failures that happened before the
+   upgrade appear at the first start (commit and starter details only exist for builds after the plugin upgrade).
+
 ## 2.1.0 - 2026-10-23
 
 **Dashboard**

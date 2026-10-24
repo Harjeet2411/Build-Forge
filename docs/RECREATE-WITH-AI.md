@@ -186,6 +186,12 @@ overall, plus "came back after a rebuild"), list with filters, stats, prune.
 incidents.py: write incidents/<id>.md and append incidents.jsonl; the Markdown has pipeline, build, build URL, failed stage,
 node, error observed, proposed solution, assessment, stats table, rebuilds and the error excerpt; rewrite it when the outcome changes.
 
+alerts.py (v2.2): after each build count the failed builds in a row for that pipeline (SUCCESS ends it; aborted/not-built are skipped),
+classify the environment from the pipeline name with two regexes, and open one alert per streak when the streak is MORE than the limit
+(production 3 critical, UAT/staging 5 high, other 5 low); a green build resolves it; dismiss is global, "read" is per user. Contacts: who
+started the first and newest failing build, and the commit authors of the streak (the plugin sends triggered_by and commits per failure;
+BuildContacts.java reads Cause.UserIdCause and RunWithSCM.getChangeSets(), the Git plugin's author e-mail or the Mailer property by reflection).
+
 deck.py + export.py (v2.1): deck.py keeps one card per error signature in a `solutions` table (draft/approved/retired, never
 overwrite a human edit), matches a failure by exact fingerprint or by IDF-weighted word similarity (thresholds 0.55 fallback, 0.85
 first), and is used by the engine when Kiro is unavailable (default) or before Kiro (BF_DECK_MODE=first, approved cards only).

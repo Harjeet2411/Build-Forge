@@ -143,6 +143,39 @@ public class BuildForgeAdmin implements RootAction, StaplerProxy {
         return ServiceClient.download("/api/v2/solutions/export" + query());
     }
 
+    private static String me() {
+        User u = User.current();
+        return u == null ? "anonymous" : u.getId();
+    }
+
+    /** GET buildforge/alerts?status=open|dismissed|resolved|all : the notification bell (read marks are per signed-in user). */
+    public HttpResponse doAlerts() {
+        check();
+        String q = query();
+        return ServiceClient.proxy("/api/v2/alerts" + q + (q.isEmpty() ? "?" : "&") + "user=" + ServiceClient.enc(me()));
+    }
+
+    /** POST buildforge/alertsRead (JSON: ids[], all, unread): mark alerts read (or unread) for the signed-in user. */
+    @RequirePOST
+    public HttpResponse doAlertsRead(StaplerRequest req) throws IOException {
+        check();
+        return relay("/api/v2/alerts/read", pick(readJson(req), "ids", "all", "unread"));
+    }
+
+    /** POST buildforge/alertDismiss (JSON: id): remove an alert from the bell for everyone. */
+    @RequirePOST
+    public HttpResponse doAlertDismiss(StaplerRequest req) throws IOException {
+        check();
+        return relay("/api/v2/alerts/dismiss", pick(readJson(req), "id"));
+    }
+
+    /** POST buildforge/alertRestore (JSON: id): bring a dismissed alert back. */
+    @RequirePOST
+    public HttpResponse doAlertRestore(StaplerRequest req) throws IOException {
+        check();
+        return relay("/api/v2/alerts/restore", pick(readJson(req), "id"));
+    }
+
     /** POST buildforge/reanalyze?id=BF-... : ask the Kiro agent again (after fixing the runner, for example). */
     @RequirePOST
     public HttpResponse doReanalyze(@QueryParameter String id) {

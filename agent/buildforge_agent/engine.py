@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from . import errors, kiro, teams
 from .config import Settings
+from .alerts import Alerts
 from .deck import Deck
 from .incidents import IncidentLog, fingerprint, new_id
 from .store import Store
@@ -26,6 +27,30 @@ def _seconds(ms) -> float | None:
         return None
 
 
+def _text(value, limit: int) -> str:
+    return str(value or "").strip()[:limit]
+
+
+def clean_trigger(raw) -> dict | None:
+    """{kind, id, name} of whoever or whatever started the build (the plugin sends it; nothing here is trusted as markup)."""
+    if not isinstance(raw, dict):
+        return None
+    out = {k: _text(raw.get(k), 120) for k in ("kind", "id", "name")}
+    return out if any(out.values()) else None
+
+
+def clean_commits(raw) -> list[dict]:
+    out = []
+    for c in (raw if isinstance(raw, list) else [])[:100]:
+        if not isinstance(c, dict):
+            continue
+        item = {"id": _text(c.get("id"), 40), "author": _text(c.get("author"), 120), "author_id": _text(c.get("author_id"), 120),
+                "email": _text(c.get("email"), 160), "message": _text(c.get("message"), 200).splitlines()[0] if c.get("message") else ""}
+        if item["author"] or item["author_id"] or item["email"]:
+            out.append(item)
+    return out[:20]
+
+
 def admin_url(build_url: str | None, inc_id: str) -> str:
     """https://jenkins/job/a/job/b/12/ -> https://jenkins/buildforge/admin#BF-..."""
     if not build_url or "/job/" not in build_url:
@@ -40,6 +65,7 @@ class Engine:
         self.logs = IncidentLog(settings.log_dir)
         self.deck = Deck(store, settings.deck_mode, settings.deck_threshold, settings.deck_first_threshold,
                          settings.deck_min_seen)
+        self.alerts = Alerts(store, settings)
         self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="buildforge")
         self._outcome_lock = threading.Lock()
         self._busy = threading.Condition()
@@ -76,10 +102,13 @@ class Engine:
             "excerpt": excerpt or "(the console log was empty)",
             "log_chars": len(console),
             "failed_at": finished,
+            "triggered_by": clean_trigger(body.get("triggered_by")),
+            "commits": clean_commits(body.get("commits")) or None,
         }
         if not self.store.create_incident(inc):  # a retry raced us
             existing = self.store.incident_for(job, build)
             return {"ok": True, "id": existing["id"], "status": existing["status"], "duplicate": True}
+        self.evaluate_alerts(job)
         if not analyse:
             log.info("%s#%s: incident %s recorded, not analysed (job filter)", job, build, inc["id"])
             self._write(self.store.incident(inc["id"]), "recorded")
@@ -88,6 +117,12 @@ class Engine:
                  len(excerpt), len(console))
         self._queue(inc["id"])
         return {"ok": True, "id": inc["id"], "status": "queued"}
+
+    def evaluate_alerts(self, job: str) -> None:
+        try:
+            self.alerts.evaluate(job)
+        except Exception:  # noqa: BLE001 - an alert problem must never lose a failure
+            log.exception("could not evaluate the alerts of %s", job)
 
     def _queue(self, inc_id: str) -> None:
         with self._busy:
@@ -270,6 +305,7 @@ class Engine:
     def prune(self) -> int:
         if self.s.retention_days <= 0:
             return 0
+        self.alerts.prune(time.time() - self.s.retention_days * 86400)
         ids = self.store.prune(time.time() - self.s.retention_days * 86400)
         for inc_id in ids:
             self.logs.remove(inc_id)

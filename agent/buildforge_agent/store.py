@@ -142,6 +142,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     fixed_build INTEGER,               -- first later build of the job that succeeded
     fixed_at REAL,
     notified INTEGER DEFAULT 0,
+    triggered_by TEXT,                 -- JSON {kind, id, name}: who or what started the build
+    commits TEXT,                      -- JSON [{id, author, author_id, email, message}]: what was committed since the last build
     created REAL NOT NULL,
     updated REAL NOT NULL,
     UNIQUE (job, build)
@@ -189,9 +191,36 @@ CREATE TABLE IF NOT EXISTS solutions (       -- the solutions deck: one reusable
     updated REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS solutions_signature ON solutions(signature);
+CREATE TABLE IF NOT EXISTS alerts (          -- the notification bell: a pipeline that keeps failing
+    id TEXT PRIMARY KEY,                     -- AL-XXXXXX
+    job TEXT NOT NULL,
+    env TEXT NOT NULL,                       -- prod | uat | other
+    severity TEXT NOT NULL,                  -- critical | high | low
+    threshold INTEGER NOT NULL,              -- the alert fires when the streak is MORE than this
+    streak INTEGER NOT NULL,                 -- failed builds in a row, no green build in between
+    first_build INTEGER NOT NULL,            -- first failed build of the streak
+    last_build INTEGER NOT NULL,
+    first_failed_at REAL,
+    last_failed_at REAL,
+    status TEXT NOT NULL DEFAULT 'open',     -- open | dismissed | resolved (a green build came)
+    contacts TEXT,                           -- JSON: who started and who committed (see alerts.py)
+    dismissed_by TEXT,
+    dismissed_at REAL,
+    resolved_at REAL,
+    resolved_build INTEGER,
+    created REAL NOT NULL,
+    updated REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS alerts_job ON alerts(job, first_build);
+CREATE TABLE IF NOT EXISTS alert_reads (     -- "mark as read" is per person
+    alert_id TEXT NOT NULL,
+    user TEXT NOT NULL,
+    at REAL NOT NULL,
+    PRIMARY KEY (alert_id, user)
+);
 """
 
-JSON_COLS = ("stages", "params", "history", "analysis")
+JSON_COLS = ("stages", "params", "history", "analysis", "triggered_by", "commits")
 
 
 def _decode(row: sqlite3.Row | None) -> dict | None:
@@ -215,7 +244,8 @@ class Store:
             self._db.execute("PRAGMA journal_mode=WAL")
             self._db.executescript(SCHEMA)
             have = {r[1] for r in self._db.execute("PRAGMA table_info(incidents)")}
-            for col, kind in (("analysed_at", "REAL"),):  # columns added after 2.0.0 databases were created
+            for col, kind in (("analysed_at", "REAL"), ("triggered_by", "TEXT"),
+                              ("commits", "TEXT")):  # columns added after 2.0.0 databases were created
                 if col not in have:
                     self._db.execute(f"ALTER TABLE incidents ADD COLUMN {col} {kind}")
             self._db.commit()

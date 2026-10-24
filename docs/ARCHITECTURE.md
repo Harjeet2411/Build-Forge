@@ -92,7 +92,7 @@ newline-delimited JSON-RPC on stdio (protocol `2025-03-26` or newer, tools only)
 | Call | Used by | Meaning |
 |---|---|---|
 | `GET /healthz` | anyone | version, runner configured?, Teams configured?, log dir |
-| `POST /api/v2/failure` | plugin | A failed build: `{job, build, result, build_url, timestamp, duration_ms, node, params[], log, rebuild_of?}` → `202 {id, status}` (the analysis runs in the background; a repeat returns `duplicate: true`) |
+| `POST /api/v2/failure` | plugin | A failed build: `{job, build, result, build_url, timestamp, duration_ms, node, params[], log, rebuild_of?, triggered_by?: {kind, id, name}, commits?: [{id, author, author_id, email, message}]}` → `202 {id, status}` (the analysis runs in the background; a repeat returns `duplicate: true`) |
 | `POST /api/v2/build-result` | plugin | Every finished build: `{job, build, result, timestamp, duration_ms, rebuild_of?}` (feeds "fixed on the next build") |
 | `POST /api/v2/rebuild-event` | plugin | `{job, build, phase: "requested"\|"started", user, new_build?}` |
 | `POST /api/v2/reanalyze` | plugin (admin page) | `{id}`: queue the analysis again |
@@ -103,6 +103,9 @@ newline-delimited JSON-RPC on stdio (protocol `2025-03-26` or newer, tools only)
 | `GET /api/v2/pipelines` † | plugin (admin) | Pipeline names for the picker, with failure counts |
 | `GET /api/v2/pulse?since=` | plugin (admin) | `{rev, now, changes[]}`: a counter that moves on every write, and the entries changed since `since`. The dashboard polls it every 4 s |
 | `GET /api/v2/export?format=csv\|xlsx\|pdf&scope=list\|summary\|full` † | plugin (admin) | A report for the current filters (and `sort`/`dir`), returned as a download |
+| `GET /api/v2/alerts?status=open\|dismissed\|resolved\|all&user=` | plugin (admin) | The bell: alerts (critical first) with `contacts` and the latest error, per-user `read`, and `counts` (open, unread, per severity) |
+| `POST /api/v2/alerts/read` `{ids[], all, unread, user}` | plugin (admin) | Mark alerts read (or unread) for `user` |
+| `POST /api/v2/alerts/dismiss`, `/alerts/restore` `{id, user}` | plugin (admin) | Remove an alert from the bell for everyone, or bring it back |
 | `GET /api/v2/solutions?q=&status=&category=&sort=&dir=` | plugin (admin) | The solutions deck: cards with sightings, pipelines and how often the next build went green |
 | `GET /api/v2/solution?id=` | plugin (admin) | One card with the incidents it covers |
 | `GET /api/v2/solutions/match?text=&min=&all=1` | plugin (admin) | Best card for an error text (without `all=1` only usable cards) |
@@ -117,6 +120,8 @@ newline-delimited JSON-RPC on stdio (protocol `2025-03-26` or newer, tools only)
 | `/job/<name>/<n>/buildforge/rebuild` | POST + crumb | Needs Build on the job; refused unless the analysis says `rebuild_can_fix`; queues the job with the same parameters and a `RebuildCause` |
 | `/buildforge/admin` | GET | Admin page; needs Administer (or Read when the option "every signed-in user" is on) |
 | `/buildforge/stats`, `/incidents`, `/incident`, `/pipelines`, `/pulse`, `/export`, `/solutions`, `/solution`, `/solutionMatch`, `/solutionsExport` | GET | Proxies of the service for the admin page. Only whitelisted query parameters are forwarded; the browser never talks to the service. Reports and the deck export need the same permission as the page (Administer by default) |
+| `/buildforge/alerts` | GET | Proxy of the bell; the plugin adds the signed-in user, so "read" is per person |
+| `/buildforge/alertsRead`, `/alertDismiss`, `/alertRestore` | POST + crumb | Mark read, dismiss, restore (the user comes from the Jenkins session, never from the browser) |
 | `/buildforge/reanalyze`, `/solutionUpdate`, `/solutionCreate`, `/solutionsImport` | POST + crumb | Proxies for re-analysis and for editing the deck |
 
 ## 4. Data model
@@ -129,6 +134,10 @@ SQLite file `buildforge.db` (schema in `agent/buildforge_agent/store.py`):
   `rebuild_can_fix`), timings, and the outcome fields `next_build`, `next_result`, `next_is_rebuild`, `fixed_build`, `fixed_at`.
 - `builds`: every finished build (green ones too), so a later success can be matched to an earlier failure.
 - `rebuilds`: each Build Forge rebuild: who asked, the new build number and its result.
+- `alerts` and `alert_reads`: one alert (`AL-XXXXXX`) per streak of failed builds of a pipeline (environment, severity, the limit it
+  exceeded, streak length, first and last build, status `open`/`dismissed`/`resolved`, who to contact as JSON) and which person
+  has read which alert.
+- `incidents.triggered_by` and `incidents.commits`: who started the build and the commit authors, as the plugin sent them.
 - `solutions`: the solutions deck, one card (`SD-XXXXXX`) per kind of error: signature, title, category, the answer, whether a
   rebuild can fix it, the normalised error lines it was written for, the fingerprints it covers, `status`
   (`draft`/`approved`/`retired`), `source` (`auto`/`manual`/`import`) and notes.
@@ -173,6 +182,17 @@ rows; CSV/XLSX at 50000).
 **Live updates**: every store write bumps a counter (`rev`). The page polls `/pulse` every 4 s (paused in hidden tabs); when
 `rev` moved it fetches the changes, flashes the rows, shows a toast and refreshes the numbers. Polling was chosen over
 server-sent events because it works behind any proxy and needs no long-lived connections in Jetty.
+
+**Alerts** (`alerts.py`): after every finished build of a pipeline the service counts the failed builds in a row, newest
+first, until a successful one (aborted and not-built runs are skipped; they neither count nor end the streak). The pipeline name
+decides the environment (`BF_ENV_PROD`, `BF_ENV_UAT`) and so the severity and the limit; when the streak is *more than* the
+limit one alert is opened for that streak (and updated as it grows; a dismissed alert stays dismissed). A green build resolves
+it. The contacts are built from the incidents of the streak: who started the first and the newest failing build, and every
+commit author in those builds with their builds, the authors of the first failing build first. The plugin collects them in
+`BuildContacts.java` (`Cause.UserIdCause` and the other causes; `RunWithSCM.getChangeSets()`; the Git plugin's author e-mail,
+else the Mailer plugin's address for the Jenkins user, read by reflection so neither plugin is required). Commit messages are
+cut to the first line; only the first 20 commits are sent. On start the service evaluates every pipeline once, so failures from
+before the upgrade raise their alerts.
 
 **Solutions deck** (`deck.py`): when Kiro's analysis is stored, `Deck.record` files it under its error signature. A repeat
 of the same error adds a sighting to the same card; a similar error (same signature, or the same error fingerprint) joins it.

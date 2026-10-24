@@ -231,6 +231,29 @@ Open **Build Forge** in the Jenkins sidebar (`/buildforge/admin`, needs Administ
   never overwritten). **Try an error** shows which card would answer a pasted error. The deck answers failures only when Kiro
   is unavailable, unless `BF_DECK_MODE=first`. After a few months of data, review the cards and consider `first` for approved ones.
 
+## Alerts: the bell
+
+The bell at the top right of the dashboard lists pipelines that keep failing. A pipeline is counted by its **failed builds in a
+row**; one green build ends the count and removes the alert.
+
+| Severity | When | Setting |
+|---|---|---|
+| **Critical** | a **production** pipeline failed more than 3 builds in a row | `BF_ALERT_PROD_AFTER=3` |
+| **High** | a **UAT / staging** pipeline failed more than 5 in a row | `BF_ALERT_UAT_AFTER=5` |
+| **Low** | any other pipeline failed more than 5 in a row | `BF_ALERT_OTHER_AFTER=5` |
+
+The environment comes from the pipeline's **name** (`folder/job/branch`): `prod`, `prd`, `production` mean production;
+`uat`, `staging`, `stage`, `stg`, `preprod` mean UAT. Change what counts with `BF_ENV_PROD` / `BF_ENV_UAT` (regular expressions).
+
+Each alert shows **who started** the failing builds (a person, an SCM change, a timer or an upstream job) and **who committed**
+the code the builds checked out: the name, the Jenkins user id and, when the Git plugin or the Mailer plugin knows it, the e-mail
+address, with an **Email** button that opens a message to them with the facts filled in. The person behind the first failing
+build is marked. For this the plugin reads each failed build's change sets, so commit authors appear for jobs that check out
+code through a Jenkins SCM step (not for a plain shell `git clone`).
+
+Per alert: **Mark read** (only for you), **Dismiss** (for everyone; it stays under *Dismissed* until a build goes green, then
+disappears) and **Restore**. New alerts pop up live with a toast and ring the bell.
+
 ## Settings reference
 
 `/etc/buildforge/buildforge.env` (Jenkins server, restart `buildforge` after a change):
@@ -251,6 +274,9 @@ Open **Build Forge** in the Jenkins sidebar (`/buildforge/admin`, needs Administ
 | `BF_DECK_MODE` | `fallback` | Solutions deck: `off`, `fallback` (a card answers only when Kiro is unavailable) or `first` (a strong match answers before Kiro) |
 | `BF_DECK_THRESHOLD` / `BF_DECK_FIRST_THRESHOLD` | 0.55 / 0.85 | Similarity (0-1) needed for a fallback answer / for answering first (approved cards only) |
 | `BF_DECK_MIN_SEEN` | 2 | A draft card is used once its error was seen this many times; approved cards are always used |
+| `BF_ALERTS` | `on` | The notification bell on the dashboard; `off` removes the alerts |
+| `BF_ALERT_PROD_AFTER`, `BF_ALERT_UAT_AFTER`, `BF_ALERT_OTHER_AFTER` | 3, 5, 5 | Alert (critical, high, low) when a pipeline failed **more than** this many builds in a row |
+| `BF_ENV_PROD`, `BF_ENV_UAT` | built in | Regular expressions on the pipeline name that mean "production" and "UAT" |
 
 `/etc/buildforge-runner/runner.env` (Kiro instance, restart `buildforge-runner` after a change):
 

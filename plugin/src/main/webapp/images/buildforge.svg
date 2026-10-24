@@ -1,22 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Build Forge">
   <defs>
-    <linearGradient id="bf-gold" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fbe38e"/>
-      <stop offset="0.55" stop-color="#e0a82e"/>
-      <stop offset="1" stop-color="#b07a12"/>
-    </linearGradient>
-    <linearGradient id="bf-pipe" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#94a3b8"/>
-      <stop offset="1" stop-color="#475569"/>
-    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#20263f"/><stop offset="1" stop-color="#0c101e"/></linearGradient>
+    <linearGradient id="em" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffc857"/><stop offset="0.55" stop-color="#ff8a3d"/><stop offset="1" stop-color="#ff4d4d"/></linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ff8a3d" stop-opacity="0.55"/><stop offset="1" stop-color="#ff8a3d" stop-opacity="0"/></radialGradient>
   </defs>
-  <rect x="1" y="1" width="46" height="46" rx="12" fill="#1e293b"/>
-  <rect x="5" y="15" width="4" height="18" rx="1.5" fill="#cbd5e1"/>
-  <rect x="39" y="15" width="4" height="18" rx="1.5" fill="#cbd5e1"/>
-  <path d="M9 18h13.4l-2.2 3.4 3 3.2-2.4 5.4H9z" fill="url(#bf-pipe)"/>
-  <path d="M39 18H25.6l-2.2 3.4 3 3.2-2.4 5.4H39z" fill="url(#bf-pipe)"/>
-  <path d="M23.4 14.5l-1.4 3.9 3 3.2-3 3.4 2.6 4.6-1.6 3.9" fill="none" stroke="url(#bf-gold)" stroke-width="2.8"
-        stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="23.4" cy="14.5" r="1.3" fill="#fbe38e"/>
-  <circle cx="23" cy="33.5" r="1.3" fill="#e0a82e"/>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#bg)"/>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="14.5" fill="none" stroke="#fff" stroke-opacity="0.09"/>
+  <circle cx="32" cy="32" r="17" fill="url(#glow)"/>
+  <path d="M32 14.5l15.2 8.75v17.5L32 49.5l-15.2-8.75v-17.5z" fill="none" stroke="url(#em)" stroke-width="3.4" stroke-linejoin="round"/>
+  <path d="M6 32h10.8M47.2 32H58" stroke="#8d97bd" stroke-width="2.6" stroke-linecap="round"/>
+  <circle cx="6.8" cy="32" r="2.2" fill="#8d97bd"/><circle cx="57.2" cy="32" r="2.2" fill="url(#em)"/>
+  <path d="M32 22.2c.9 4.7 3.1 6.9 7.8 7.8-4.7.9-6.9 3.1-7.8 7.8-.9-4.7-3.1-6.9-7.8-7.8 4.7-.9 6.9-3.1 7.8-7.8z" fill="url(#em)"/>
 </svg>

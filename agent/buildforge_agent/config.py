@@ -22,6 +22,11 @@ def _regex(name: str) -> re.Pattern | None:
     return re.compile(raw) if raw else None
 
 
+def _bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    return default if not raw else raw not in ("0", "false", "no", "off")
+
+
 @dataclass
 class Settings:
     listen_host: str = "127.0.0.1"
@@ -45,6 +50,13 @@ class Settings:
     deck_threshold: float = 0.55                    # similarity needed for a deck answer when Kiro is unavailable
     deck_first_threshold: float = 0.85              # ...and for answering before Kiro (approved cards only)
     deck_min_seen: int = 2                          # a draft card is used once its error was seen this many times
+    alerts: bool = True                             # the notification bell: pipelines that keep failing
+    alert_prod_after: int = 3                       # critical: a production pipeline failed MORE than this many builds in a row
+    alert_uat_after: int = 5                        # high: a UAT / staging pipeline failed more than this many in a row
+    alert_other_after: int = 5                      # low: any other pipeline failed more than this many in a row
+    env_prod: re.Pattern = re.compile(
+        r"(?<![a-z0-9])(?<!pre-)(?<!pre_)(?<!pre )(prod|prd|production)(?![a-z0-9])", re.I)
+    env_uat: re.Pattern = re.compile(r"(?<![a-z0-9])(uat|staging|stage|stg|preprod|pre-prod|pre_prod)(?![a-z0-9])", re.I)
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -70,6 +82,11 @@ class Settings:
             deck_threshold=_float("BF_DECK_THRESHOLD", 0.55),
             deck_first_threshold=_float("BF_DECK_FIRST_THRESHOLD", 0.85),
             deck_min_seen=_int("BF_DECK_MIN_SEEN", 2),
+            alerts=_bool("BF_ALERTS", True),
+            alert_prod_after=_int("BF_ALERT_PROD_AFTER", 3),
+            alert_uat_after=_int("BF_ALERT_UAT_AFTER", 5),
+            alert_other_after=_int("BF_ALERT_OTHER_AFTER", 5),
+            **{k: v for k, v in (("env_prod", _regex("BF_ENV_PROD")), ("env_uat", _regex("BF_ENV_UAT"))) if v},
         )
 
     def job_allowed(self, job: str) -> bool:

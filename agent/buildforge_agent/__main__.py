@@ -50,6 +50,9 @@ def main() -> int:
     n = engine.deck.backfill()
     if n:
         logging.getLogger("buildforge").info("solutions deck built from %d earlier analyses", n)
+    n = engine.alerts.rebuild_all()
+    if n:
+        logging.getLogger("buildforge").info("%d alert(s) for pipelines that keep failing", n)
     engine.resume_pending()
     serve(engine)
     return 0

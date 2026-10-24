@@ -12,6 +12,9 @@
   var ICON = {
     search: "<svg viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round'><circle cx='7' cy='7' r='4.5'/><path d='M10.5 10.5L14 14'/></svg>",
     download: "<svg viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M8 2v8m0 0L5 7m3 3l3-3M3 13h10'/></svg>",
+    bell: "<svg viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M8 2.2a3.8 3.8 0 0 0-3.8 3.8c0 3.4-1.5 4.4-1.5 4.4h10.6s-1.5-1-1.5-4.4A3.8 3.8 0 0 0 8 2.2zM6.6 12.6a1.5 1.5 0 0 0 2.8 0'/></svg>",
+    mail: "<svg viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='3.5' width='12' height='9' rx='1.8'/><path d='M2.6 4.6L8 8.6l5.4-4'/></svg>",
+    check: "<svg viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8.4l3.2 3.1L13 4.6'/></svg>",
     plus: "<svg viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round'><path d='M8 3v10M3 8h10'/></svg>",
     upload: "<svg viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M8 11V3m0 0L5 6m3-3l3 3M3 13h10'/></svg>",
     arrow: "<svg class='bf-arr' viewBox='0 0 10 10' width='10' height='10' fill='none' stroke='currentColor' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M5 8V2m0 0L2.5 4.5M5 2l2.5 2.5'/></svg>"
@@ -213,6 +216,7 @@
     }
 
     root.classList.add("bf-root", "bf-admin-root");
+    document.body.classList.add("bf-wide");  // use the whole window, not Jenkins' centred column
     root.innerHTML =
       "<div class='bf-top'><img class='bf-logo' alt='' src='" + esc(d.bfLogo) + "'>" +
       "<div><div class='bf-title'>Build Forge</div><div class='bf-tag'>Every failed build, its fix and what happened next</div><div class='bf-credit'>Plugin developed by Harjeet L</div></div>" +
@@ -220,6 +224,7 @@
       "<button type='button' class='bf-tab' role='tab' data-view='failures' aria-selected='true'>Failures<span class='bf-count' data-c='failures'></span></button>" +
       "<button type='button' class='bf-tab' role='tab' data-view='deck' aria-selected='false'>Solutions deck<span class='bf-count' data-c='deck'></span></button></div>" +
       "<button type='button' class='bf-live' data-state='on' title='Click to pause or resume live updates'><span class='bf-dot'></span><span class='bf-live-t'>Live</span></button>" +
+      "<button type='button' class='bf-bell' aria-label='Alerts' title='Alerts: pipelines that keep failing'>" + ICON.bell + "<span class='bf-bell-n' hidden>0</span></button>" +
       "<button type='button' class='bf-btn bf-btn-primary bf-export'>" + ICON.download + "Export</button></div></div>" +
       (d.bfActive === "true" ? "" : "<p class='bf-err'>Build Forge is turned off or has no service URL (Manage Jenkins › System › Build Forge).</p>") +
       "<div class='bf-banner'></div>" +
@@ -241,7 +246,7 @@
       "<div class='bf-try'><textarea class='bf-input bf-try-text' rows='4' placeholder='fatal: unable to access https://git.example.com/…: Could not resolve host'></textarea>" +
       "<div><button type='button' class='bf-btn bf-try-go'>Find the best card</button></div><div class='bf-try-out' hidden></div></div></div>" +
       "</section>" +
-      "<div class='bf-overlay' data-drawer hidden></div><div class='bf-overlay bf-modal-wrap' data-modal hidden></div>" +
+      "<div class='bf-overlay bf-alerts-wrap' data-alerts hidden></div><div class='bf-overlay' data-drawer hidden></div><div class='bf-overlay bf-modal-wrap' data-modal hidden></div>" +
       "<div class='bf-toasts'></div><div class='bf-tip'></div>";
     var $ = function (s) { return root.querySelector(s); };
     var $$ = function (s) { return Array.prototype.slice.call(root.querySelectorAll(s)); };
@@ -578,6 +583,7 @@
         var j = res.j;
         if (lastRev !== null && j.rev !== lastRev) {
           announce(j.changes, lastNow);
+          loadAlerts(true);
           if (state.view === "failures") { pipelinesCache = null; refresh(); } else loadDeck(true);
           lastOk = Date.now();
         }
@@ -593,7 +599,7 @@
     drawer.onclick = function (ev) { if (ev.target === drawer) closeDrawer(); };
     modal.onclick = function (ev) { if (ev.target === modal) closeModal(); };
     document.addEventListener("keydown", function (ev) {
-      if (ev.key === "Escape") { if (!modal.hidden) closeModal(); else if (!drawer.hidden) closeDrawer(); }
+      if (ev.key === "Escape") { if (!modal.hidden) closeModal(); else if (!drawer.hidden) closeDrawer(); else if (!alertsEl.hidden) closeAlerts(); }
       if (ev.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "") && modal.hidden && drawer.hidden) {
         ev.preventDefault(); (state.view === "deck" ? $(".bf-dq") : qIn).focus();
       }
@@ -878,6 +884,158 @@
       if (rt) rt.onclick = function () { save({status: "retired"}); };
     }
 
+
+    // ---------------------------------------------------------- alerts (the bell)
+    var SEV = {critical: ["Critical", "bf-sev-critical"], high: ["High", "bf-sev-high"], low: ["Low", "bf-sev-low"]};
+    var ENV = {prod: "Production", uat: "UAT / staging", other: "Other"};
+    var al = {items: [], counts: {open: 0, unread: 0, dismissed: 0}, rules: {prod: 3, uat: 5, other: 5}, status: "open", sev: "", loaded: false, known: null, shown: []};
+    var bell = $(".bf-bell"), bellN = $(".bf-bell-n"), alertsEl = $("[data-alerts]");
+    function paintBell() {
+      var c = al.counts, n = c.unread || 0, top = c.unread_critical ? "critical" : c.unread_high ? "high" : c.unread_low ? "low" : "";
+      bellN.hidden = !n;
+      bellN.textContent = n > 99 ? "99+" : String(n);
+      bellN.className = "bf-bell-n" + (top ? " " + SEV[top][1] : "");
+      bell.classList.toggle("bf-has", !!c.open);
+      bell.setAttribute("aria-label", "Alerts" + (n ? ", " + n + " unread" : ""));
+    }
+    function ringBell() {
+      if (reduced) return;
+      bell.classList.remove("bf-ring"); void bell.offsetWidth; bell.classList.add("bf-ring");
+    }
+    function loadAlerts(announceNew) {
+      return getJson(base + "alerts?status=" + al.status).then(function (res) {
+        if (!res.ok) return;
+        var j = res.j;
+        if (al.status === "open") {
+          var ids = {};
+          j.items.forEach(function (a) { ids[a.id] = a; });
+          if (announceNew && al.known) {
+            j.items.filter(function (a) { return !al.known[a.id] && !a.read; }).slice(0, 2).forEach(function (a) {
+              toast((SEV[a.severity] || [a.severity])[0] + " alert · " + a.job, a.streak + " failed builds in a row", a.severity === "low" ? "" : "bad", "alerts");
+              ringBell();
+            });
+          }
+          al.known = ids;
+        }
+        al.items = j.items; al.counts = j.counts; al.rules = j.rules || al.rules; al.loaded = true;
+        paintBell();
+        if (!alertsEl.hidden) drawAlerts();
+      });
+    }
+    function mailtoFor(a) {
+      var c = a.contacts || {}, to = [];
+      (c.committers || []).forEach(function (p) { if (p.email && to.indexOf(p.email) < 0) to.push(p.email); });
+      var subject = "[Build Forge] " + a.job + " has failed " + a.streak + " builds in a row";
+      var body = "Hi,\n\nThe pipeline " + a.job + " has failed " + a.streak + " builds in a row (#" + a.first_build + " to #" + a.last_build + ") and has not been green since." +
+        (a.latest && a.latest.build_url ? "\nLatest build: " + a.latest.build_url : "") +
+        (a.latest && a.latest.error ? "\nError: " + a.latest.error.replace(/\s+/g, " ") : "") + "\n\nCould you take a look?\n";
+      return "mailto:" + to.map(encodeURIComponent).join(",") + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+    }
+    function whoLine(t) {
+      if (!t) return "";
+      var name = t.name || t.id || "";
+      if (t.kind === "user") return "<b>" + esc(name) + "</b>" + (t.id && t.id !== name ? " <span class='bf-muted'>(" + esc(t.id) + ")</span>" : "");
+      return "<span>" + esc(name || t.kind) + "</span>";
+    }
+    function alertCard(a, i) {
+      var c = a.contacts || {}, sev = SEV[a.severity] || [a.severity, ""], people = c.committers || [], l = a.latest || {};
+      var started = c.started_latest, first = c.started_first;
+      var html_ = "<article class='bf-alert " + sev[1] + (a.read ? "" : " bf-unread") + "' data-id='" + esc(a.id) + "' style='animation-delay:" + Math.min(i, 8) * 40 + "ms'>" +
+        "<div class='bf-alert-head'><span class='bf-sev " + sev[1] + "'>" + esc(sev[0]) + "</span><span class='bf-env'>" + esc(ENV[a.env] || a.env) + "</span>" +
+        (a.read ? "" : "<span class='bf-new'>New</span>") + "<span class='bf-spacer bf-muted bf-alert-ago'>" + esc(ago(a.last_failed_at)) + "</span></div>" +
+        "<h3 class='bf-alert-job' title='" + esc(a.job) + "'>" + esc(a.job) + "</h3>" +
+        "<div class='bf-alert-sub'><b>" + a.streak + "</b> failed builds in a row <span class='bf-muted'>· #" + a.first_build + " to #" + a.last_build +
+        (a.first_failed_at ? " · since " + esc(whenText(a.first_failed_at)) : "") + "</span></div>" +
+        (l.signature || l.error ? "<div class='bf-alert-err'>" + (l.signature ? "<code>" + esc(l.signature) + "</code> " : "") + esc((l.error || "").replace(/`/g, "").slice(0, 160)) + "</div>" : "") +
+        "<div class='bf-contacts'>" +
+        (started ? "<div class='bf-contact-row'><span class='bf-ck'>Started by</span><span>" + whoLine(started) + " <span class='bf-muted'>#" + started.build + "</span>" +
+          (first && first.build !== started.build && (first.name || first.id) !== (started.name || started.id) ? " <span class='bf-muted'>· first failure by</span> " + whoLine(first) : "") + "</span></div>" : "") +
+        (people.length ? "<div class='bf-contact-row'><span class='bf-ck'>Committed by</span><span class='bf-people'>" + people.map(function (p) {
+          var tip = (p.commits || []).map(function (x) { return (x.id ? x.id + " " : "") + x.message; }).join("\n");
+          return "<span class='bf-person" + (p.first_failure ? " bf-p-first" : "") + "' title='" + esc(tip) + "'><b>" + esc(p.name || p.id) + "</b>" +
+            (p.email ? " <a href='mailto:" + esc(p.email) + "'>" + esc(p.email) + "</a>" : (p.id && p.id !== p.name ? " <span class='bf-muted'>(" + esc(p.id) + ")</span>" : "")) +
+            (p.first_failure ? " <em>first failing build</em>" : "") + "</span>";
+        }).join("") + "</span></div>" : "") +
+        (!started && !people.length ? "<div class='bf-contact-row bf-muted'>No commit or user information was recorded for these builds.</div>" : "") +
+        "</div>" +
+        "<div class='bf-alert-actions'>" +
+        (people.some(function (p) { return p.email; }) ? "<a class='bf-btn bf-btn-sm bf-btn-primary' href='" + esc(mailtoFor(a)) + "'>" + ICON.mail + "Email</a>" : "") +
+        (l.id ? "<button type='button' class='bf-btn bf-btn-sm' data-act='open'>Open entry</button>" : "") +
+        (l.build_url ? "<a class='bf-btn bf-btn-sm' href='" + esc(l.build_url) + "'>Open build</a>" : "") +
+        "<span class='bf-spacer'></span>" +
+        (a.status === "dismissed" ? "<button type='button' class='bf-btn bf-btn-sm bf-btn-ghost' data-act='restore'>Restore</button>" :
+          "<button type='button' class='bf-btn bf-btn-sm bf-btn-ghost' data-act='" + (a.read ? "unread" : "read") + "'>" + (a.read ? "Mark unread" : ICON.check + "Mark read") + "</button>" +
+          "<button type='button' class='bf-btn bf-btn-sm bf-btn-ghost' data-act='dismiss'>Dismiss</button>") +
+        "</div></article>";
+      return html_;
+    }
+    function drawAlerts() {
+      var c = al.counts, rules = al.rules, open = al.status === "open";
+      var items = al.items.filter(function (a) { return !al.sev || a.severity === al.sev; });
+      var sevChips = [["", "All", c.open]].concat(["critical", "high", "low"].map(function (k) { return [k, SEV[k][0], c[k] || 0]; }));
+      alertsEl.innerHTML = "<aside class='bf-drawer bf-alerts' role='dialog' aria-label='Alerts'>" +
+        "<div class='bf-alerts-top'><div><h2>Alerts</h2><p class='bf-muted'>Pipelines that keep failing. A green build removes the alert.</p></div>" +
+        "<div class='bf-alerts-btns'>" + (open && c.unread ? "<button type='button' class='bf-btn bf-btn-sm bf-readall'>" + ICON.check + "Mark all read</button>" : "") +
+        "<button type='button' class='bf-btn bf-btn-sm bf-btn-ghost bf-close'>Close</button></div></div>" +
+        "<div class='bf-alert-tabs'><div class='bf-tabs'>" +
+        "<button type='button' class='bf-tab' data-st='open' aria-selected='" + open + "'>Open<span class='bf-count'>" + (c.open || 0) + "</span></button>" +
+        "<button type='button' class='bf-tab' data-st='dismissed' aria-selected='" + !open + "'>Dismissed<span class='bf-count'>" + (c.dismissed || 0) + "</span></button></div>" +
+        (open ? "<div class='bf-sevchips'>" + sevChips.map(function (x) {
+          return "<button type='button' class='bf-sevchip " + (x[0] ? SEV[x[0]][1] : "") + (al.sev === x[0] ? " bf-on" : "") + "' data-sev='" + x[0] + "'>" + esc(x[1]) + " <b>" + x[2] + "</b></button>";
+        }).join("") + "</div>" : "") + "</div>" +
+        "<p class='bf-rules'><span class='bf-sev bf-sev-critical'>Critical</span> production, more than " + rules.prod + " failed builds in a row " +
+        "<span class='bf-sev bf-sev-high'>High</span> UAT or staging, more than " + rules.uat + " " +
+        "<span class='bf-sev bf-sev-low'>Low</span> any other pipeline, more than " + rules.other + "</p>" +
+        "<div class='bf-alert-list'>" + (items.length ? items.map(alertCard).join("") :
+          "<div class='bf-empty'>" + ICON.check + "<b>" + (open ? (al.sev ? "No " + SEV[al.sev][0].toLowerCase() + " alerts" : "No pipeline is failing repeatedly") : "Nothing dismissed") + "</b><span class='bf-muted'>" +
+          (open ? "You will be notified here, live, when one starts to." : "Dismissed alerts that are still failing show up here.") + "</span></div>") + "</div></aside>";
+      var box = alertsEl.querySelector(".bf-alerts");
+      box.querySelector(".bf-close").onclick = closeAlerts;
+      var ra = box.querySelector(".bf-readall");
+      if (ra) ra.onclick = function () { post("alertsRead", {all: true}).then(function () { loadAlerts(); }); };
+      Array.prototype.forEach.call(box.querySelectorAll(".bf-alert-tabs .bf-tab"), function (t) {
+        t.onclick = function () { al.status = t.dataset.st; al.sev = ""; loadAlerts(); };
+      });
+      Array.prototype.forEach.call(box.querySelectorAll(".bf-sevchip"), function (b) {
+        b.onclick = function () { al.sev = b.dataset.sev; drawAlerts(); };
+      });
+      Array.prototype.forEach.call(box.querySelectorAll(".bf-alert"), function (card) {
+        var a = al.items.filter(function (x) { return x.id === card.dataset.id; })[0];
+        Array.prototype.forEach.call(card.querySelectorAll("[data-act]"), function (b) {
+          b.onclick = function () {
+            var act = b.dataset.act;
+            if (act === "open") {
+              post("alertsRead", {ids: [a.id]}).then(function () { loadAlerts(); });
+              location.hash = a.latest.id;
+              return;
+            }
+            card.classList.add("bf-leaving");
+            var req = act === "read" ? post("alertsRead", {ids: [a.id]}) : act === "unread" ? post("alertsRead", {ids: [a.id], unread: true}) :
+              act === "dismiss" ? post("alertDismiss", {id: a.id}) : post("alertRestore", {id: a.id});
+            req.then(function (r) {
+              if (!r.ok) { card.classList.remove("bf-leaving"); toast("Could not update the alert", r.j.error || "", "bad"); return; }
+              if (act === "dismiss") toast("Alert dismissed", a.job + " (it stays in Dismissed until a green build)");
+              loadAlerts();
+            });
+          };
+        });
+      });
+    }
+    function openAlerts() {
+      alertsEl.hidden = false;
+      al.status = "open"; al.sev = "";
+      drawAlerts();
+      loadAlerts();
+      if (location.hash !== "#alerts") history.replaceState(null, "", location.pathname + location.search + "#alerts");
+    }
+    function closeAlerts() {
+      alertsEl.hidden = true; alertsEl.innerHTML = "";
+      if (location.hash === "#alerts") history.replaceState(null, "", location.pathname + location.search);
+    }
+    alertsEl.onclick = function (ev) { if (ev.target === alertsEl) closeAlerts(); };
+    bell.onclick = function () { if (alertsEl.hidden) openAlerts(); else closeAlerts(); };
+    loadAlerts();
+
     // ---------------------------------------------------------- views and routing
     function setView(v) {
       state.view = v;
@@ -891,6 +1049,7 @@
     });
     function route() {
       var h = location.hash.slice(1);
+      if (h === "alerts") { if (alertsEl.hidden) openAlerts(); return; }
       if (/^SD-/.test(h)) { if (state.view !== "deck") setView("deck"); showCard(h); return; }
       if (/^BF-/.test(h)) { if (state.view !== "failures") setView("failures"); showIncident(h); return; }
       if (!drawer.hidden) closeDrawer();

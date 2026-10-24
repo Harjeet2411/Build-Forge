@@ -85,6 +85,14 @@ public class BuildForgeListener extends RunListener<Run<?, ?>> {
             }
         }
         payload.put("params", params);
+        JSONObject trigger = BuildContacts.triggeredBy(run);
+        if (trigger != null) {
+            payload.put("triggered_by", trigger);
+        }
+        JSONArray commits = BuildContacts.commits(run);
+        if (!commits.isEmpty()) {
+            payload.put("commits", commits);
+        }
         // Off the build thread: a slow or missing service must never hold up a build.
         Computer.threadPoolForRemoting.submit(() -> send("/api/v2/failure", run.getFullDisplayName(), payload));
     }

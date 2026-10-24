@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/branding/logo-a-ember-hex.svg" width="96" alt="Build Forge logo"></p>
+
 # Build Forge
 
 **Every failed Jenkins build, read by an AI agent, with the fix shown on the build.**
@@ -24,6 +26,9 @@ dashboard shows **every** failed build plus stats such as *how many pipelines fa
   period, pipeline (wildcards), category, outcome and rebuild filters, sortable columns, a detail drawer, failures per day,
   categories, recurring errors, rebuilds and how many went green, median time to fix. It follows the Jenkins theme (light and
   dark) and **updates live**: new failures slide in with a toast, numbers and charts animate.
+- **Alerts**: a bell lists pipelines that keep failing: critical for a production pipeline failed more than 3 builds in a row,
+  high for UAT more than 5, low for any other more than 5. A green build discards the alert. Each alert names who started the
+  builds and who committed, with their e-mail, so an admin can contact them. Mark read, dismiss, live toasts.
 - **Reports** for admins in **CSV, XLSX or PDF**, for a month, any period or chosen pipelines, as a list, a summary or both. They
   always match the filters on screen.
 - **Solutions deck**: every analysis is filed on a card per kind of error (how often, in which pipelines, how often the next
@@ -39,6 +44,7 @@ dashboard shows **every** failed build plus stats such as *how many pipelines fa
 | ![Filters, wildcard pipeline picker and sorting](docs/screenshots/filters.png) | ![Report download](docs/screenshots/export.png) |
 | ![The solutions deck](docs/screenshots/solutions-deck.png) | ![A card of the deck](docs/screenshots/solution-card.png) |
 | ![An answer taken from the deck while Kiro was down](docs/screenshots/panel-from-deck.png) | ![Dark theme](docs/screenshots/dashboard-dark.png) |
+| ![The alerts bell: who started it, who committed](docs/screenshots/alerts.png) | ![Alerts in the dark theme](docs/screenshots/alerts-dark.png) |
 
 ## How it works
 
@@ -123,7 +129,7 @@ docs/          Guides, screenshots, sample incident log
 ## Tests
 
 ```bash
-(cd agent       && python3 -m unittest discover -s tests)   # 44 tests: incidents, logs, outcomes, stats, filters, reports, deck, HTTP API
+(cd agent       && python3 -m unittest discover -s tests)   # 59 tests: incidents, logs, outcomes, stats, filters, reports, deck, alerts, HTTP API
 (cd kiro-runner && python3 -m unittest discover -s tests)   # 7 tests: runner and the real MCP server with a stand-in CLI
 ```
 

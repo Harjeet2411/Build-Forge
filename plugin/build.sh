@@ -5,7 +5,7 @@
 # Output: ./buildforge.hpi  (upload it in Manage Jenkins > Plugins > Advanced settings > Deploy Plugin)
 set -euo pipefail
 cd "$(dirname "$0")"
-VERSION=2.1.0
+VERSION=2.2.0
 WAR="${1:-}"
 if [ -z "$WAR" ]; then
   for c in /usr/share/java/jenkins.war /usr/share/jenkins/jenkins.war /usr/lib/jenkins/jenkins.war; do
