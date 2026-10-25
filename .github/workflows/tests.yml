@@ -16,3 +16,20 @@ jobs:
       - name: Runner and MCP server tests
         run: python3 -m unittest discover -s tests
         working-directory: kiro-runner
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Download the current Jenkins LTS war
+        run: curl -fsSL -o "$RUNNER_TEMP/jenkins.war" https://get.jenkins.io/war-stable/latest/jenkins.war
+      - name: Build buildforge.hpi
+        run: bash build.sh "$RUNNER_TEMP/jenkins.war"
+        working-directory: plugin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: buildforge-hpi
+          path: plugin/buildforge.hpi
