@@ -16,7 +16,6 @@ import zipfile
 from http.server import ThreadingHTTPServer
 
 import test_service as ts
-from buildforge_agent import deck as deckmod
 from buildforge_agent import export, server
 
 AWS_LOG = (ts.LOGS / "aws-duplicate-target-group.log").read_text()
