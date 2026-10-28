@@ -171,7 +171,7 @@ class Deck:
         if not entries:
             return None
         usage = self._usage(entries)
-        cards = [self._view(e, usage[e["id"]]) | {"_tokens": set(e["tokens"]), "_fps": set(e["fingerprints"])}
+        cards = [{**self._view(e, usage[e["id"]]), "_tokens": set(e["tokens"]), "_fps": set(e["fingerprints"])}
                  for e in entries]
         pool = [c for c in cards if c["usable"]] if usable_only else [c for c in cards if c["status"] != "retired"]
         if not pool:
