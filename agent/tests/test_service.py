@@ -93,6 +93,7 @@ class Base(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.httpd.shutdown()
+        cls.httpd.server_close()
 
     def setUp(self):
         StubRunner.seen, StubRunner.teams, StubRunner.fail = [], [], False
@@ -261,6 +262,7 @@ class HttpTests(Base):
 
     def tearDown(self):
         self.http.shutdown()
+        self.http.server_close()
         super().tearDown()
 
     def call(self, path, body=None, secret="s3"):
@@ -271,7 +273,8 @@ class HttpTests(Base):
             with urllib.request.urlopen(req, timeout=10) as r:
                 return r.status, json.loads(r.read())
         except urllib.error.HTTPError as exc:
-            return exc.code, json.loads(exc.read())
+            with exc:
+                return exc.code, json.loads(exc.read())
 
     def test_secret_is_required(self):
         self.assertEqual(self.call("/api/v2/stats", secret="nope")[0], 401)

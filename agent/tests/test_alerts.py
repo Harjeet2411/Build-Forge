@@ -191,7 +191,8 @@ class AlertHttpTests(AlertBase):
             with urllib.request.urlopen(req, timeout=10) as r:
                 return r.status, json.loads(r.read())
         except urllib.error.HTTPError as e:
-            return e.code, json.loads(e.read())
+            with e:
+                return e.code, json.loads(e.read())
 
     def test_list_read_dismiss_restore_over_http(self):
         code, out = self.call("/api/v2/alerts?user=alice")
@@ -216,6 +217,7 @@ class AlertHttpTests(AlertBase):
         req = urllib.request.Request(self.url + "/api/v2/alerts", headers={"X-BuildForge-Secret": "no"})
         with self.assertRaises(urllib.error.HTTPError) as cm:
             urllib.request.urlopen(req, timeout=10)
+        cm.exception.close()
         self.assertEqual(cm.exception.code, 401)
 
 

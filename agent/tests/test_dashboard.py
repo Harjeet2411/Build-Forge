@@ -386,6 +386,7 @@ class DashboardHttpTests(Seeded):
             self.assertIn(f'attachment; filename="buildforge-report-2026-10-01_to_2026-10-31.{fmt}"', headers["Content-Disposition"])
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             self.get("/api/v2/export?format=exe", raw=True)
+        ctx.exception.close()
         self.assertEqual(ctx.exception.code, 400)
         code, headers, body = self.get("/api/v2/solutions/export?format=json", raw=True)
         self.assertEqual(json.loads(body)["format"], "buildforge-solutions-deck/1")
@@ -405,6 +406,7 @@ class DashboardHttpTests(Seeded):
         self.assertEqual(d["edited_by"], "alice")
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             self.post("/api/v2/solution/update", {"id": sid, "status": "nope"})
+        ctx.exception.close()
         self.assertEqual(ctx.exception.code, 400)
 
 
