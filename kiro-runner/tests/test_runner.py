@@ -52,6 +52,7 @@ class RunnerTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown()
+        cls.srv.server_close()
 
     def setUp(self):
         os.environ.pop("FAKE_KIRO_MODE", None)
@@ -63,7 +64,8 @@ class RunnerTests(unittest.TestCase):
             with urllib.request.urlopen(req, timeout=60) as r:
                 return r.status, json.loads(r.read())
         except urllib.error.HTTPError as e:
-            return e.code, json.loads(e.read())
+            with e:
+                return e.code, json.loads(e.read())
 
     def args(self):
         return Path(os.environ["FAKE_KIRO_ARGS"]).read_text()
