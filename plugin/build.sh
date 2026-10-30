@@ -25,7 +25,9 @@ mkdir -p "$WORK/classes" "$WORK/hpi/WEB-INF/lib" "$WORK/hpi/META-INF"
 
 # Java 11 bytecode loads on every Jenkins from 2.346 on. Newer cores are built for a newer Java (the class file version in the
 # error: 61 = Java 17, 65 = Java 21), and javac can only read classes up to its own version, so those need a matching JDK.
-compile() { javac -nowarn --release "$1" -encoding UTF-8 -cp "$CP" -d "$WORK/classes" $(find src/main/java -name '*.java') 2>"$WORK/javac.log"; }
+SOURCES=()
+while IFS= read -r -d '' f; do SOURCES+=("$f"); done < <(find src/main/java -name '*.java' -print0)
+compile() { javac -nowarn --release "$1" -encoding UTF-8 -cp "$CP" -d "$WORK/classes" "${SOURCES[@]}" 2>"$WORK/javac.log"; }
 if ! compile 11; then
   NEED="$(sed -n 's/.*class file has wrong version \([0-9]*\)\..*/\1/p' "$WORK/javac.log" | sort -n | tail -1)"
   if [ -n "$NEED" ]; then
@@ -64,5 +66,11 @@ MF
 cp -r src/main/webapp/. "$WORK/hpi/"
 
 rm -f buildforge.hpi
-(cd "$WORK/hpi" && jar cfm "$OLDPWD/buildforge.hpi" META-INF/MANIFEST.MF $(ls -A | grep -v '^META-INF$'))
+(
+  cd "$WORK/hpi"
+  shopt -s dotglob
+  ENTRIES=()
+  for e in *; do [ "$e" = META-INF ] || ENTRIES+=("$e"); done
+  jar cfm "$OLDPWD/buildforge.hpi" META-INF/MANIFEST.MF "${ENTRIES[@]}"
+)
 echo "Built $(pwd)/buildforge.hpi (plugin $VERSION, compiled against Jenkins $CORE_VERSION)"
