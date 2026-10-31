@@ -23,6 +23,12 @@ jobs:
       - name: Runner and MCP server tests
         run: python3 -m unittest discover -s tests
         working-directory: kiro-runner
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck the build and install scripts
+        run: shellcheck plugin/build.sh agent/deploy/install.sh kiro-runner/deploy/install.sh
   plugin:
     runs-on: ubuntu-latest
     steps:
