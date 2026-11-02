@@ -27,7 +27,12 @@ def main() -> int:
 
     if args.cmd == "extract":
         from . import errors
-        text = open(args.logfile, encoding="utf-8", errors="replace").read()
+        try:
+            with open(args.logfile, encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError as exc:
+            print(f"cannot read {args.logfile}: {exc.strerror}", file=sys.stderr)
+            return 2
         part = errors.extract(text, max_chars=s.max_error_chars)
         print(json.dumps({"stage": part["stage"], "node": part["node"], "stages": errors.stages(text, part["stage"]),
                           "chars": len(part["text"]), "of": len(text)}, indent=2))
