@@ -149,10 +149,7 @@ class IncidentLog:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
     def remove(self, inc_id: str) -> None:
-        try:
-            self.path(inc_id).unlink()
-        except FileNotFoundError:
-            pass
+        self.path(inc_id).unlink(missing_ok=True)
 
     def read(self, inc_id: str) -> str | None:
         try:
