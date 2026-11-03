@@ -23,7 +23,11 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    s = Settings.from_env()
+    try:
+        s = Settings.from_env()
+    except ValueError as exc:
+        print(f"configuration error: {exc}", file=sys.stderr)
+        return 2
 
     if args.cmd == "extract":
         from . import errors

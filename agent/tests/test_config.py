@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -58,6 +59,18 @@ class ParsingTest(unittest.TestCase):
 
     def test_notify_on_list(self):
         self.assertEqual(settings(BF_NOTIFY_ON=" infrastructure , code ,,").notify_on, {"infrastructure", "code"})
+
+
+class InvalidValueTest(unittest.TestCase):
+    def test_errors_name_the_variable(self):
+        cases = {
+            "BF_RUNNER_TIMEOUT": ("5m", "BF_RUNNER_TIMEOUT must be a whole number, got '5m'"),
+            "BF_DECK_THRESHOLD": ("high", "BF_DECK_THRESHOLD must be a number, got 'high'"),
+            "BF_JOB_INCLUDE": ("(payments", "BF_JOB_INCLUDE is not a valid regular expression"),
+        }
+        for name, (value, message) in cases.items():
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, re.escape(message)):
+                settings(**{name: value})
 
 
 class JobFilterTest(unittest.TestCase):

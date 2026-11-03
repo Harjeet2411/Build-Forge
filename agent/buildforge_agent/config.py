@@ -9,17 +9,32 @@ from pathlib import Path
 
 def _int(name: str, default: int) -> int:
     raw = os.environ.get(name, "").strip()
-    return int(raw) if raw else default
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be a whole number, got {raw!r}") from None
 
 
 def _float(name: str, default: float) -> float:
     raw = os.environ.get(name, "").strip()
-    return float(raw) if raw else default
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be a number, got {raw!r}") from None
 
 
 def _regex(name: str) -> re.Pattern | None:
     raw = os.environ.get(name, "").strip()
-    return re.compile(raw) if raw else None
+    if not raw:
+        return None
+    try:
+        return re.compile(raw)
+    except re.error as exc:
+        raise ValueError(f"{name} is not a valid regular expression: {exc}") from None
 
 
 def _bool(name: str, default: bool) -> bool:
