@@ -39,6 +39,9 @@ class ParsingTest(unittest.TestCase):
         s = settings(BF_LISTEN="0.0.0.0:9000")
         self.assertEqual((s.listen_host, s.listen_port), ("0.0.0.0", 9000))
         self.assertEqual(settings(BF_LISTEN=":9001").listen_host, "127.0.0.1")
+        for bad in ("localhost", "127.0.0.1:", "127.0.0.1:http", "0.0.0.0:70000"):
+            with self.subTest(bad=bad), self.assertRaisesRegex(ValueError, "BF_LISTEN must be host:port"):
+                settings(BF_LISTEN=bad)
 
     def test_numbers_and_strings(self):
         s = settings(BF_RUNNER_TIMEOUT="600", BF_DECK_THRESHOLD="0.7", BF_SEND="FULL",
@@ -67,6 +70,7 @@ class InvalidValueTest(unittest.TestCase):
             "BF_RUNNER_TIMEOUT": ("5m", "BF_RUNNER_TIMEOUT must be a whole number, got '5m'"),
             "BF_DECK_THRESHOLD": ("high", "BF_DECK_THRESHOLD must be a number, got 'high'"),
             "BF_JOB_INCLUDE": ("(payments", "BF_JOB_INCLUDE is not a valid regular expression"),
+            "BF_LISTEN": ("localhost", "BF_LISTEN must be host:port"),
         }
         for name, (value, message) in cases.items():
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, re.escape(message)):

@@ -37,6 +37,14 @@ def _regex(name: str) -> re.Pattern | None:
         raise ValueError(f"{name} is not a valid regular expression: {exc}") from None
 
 
+def _listen(raw: str) -> tuple[str, int]:
+    """BF_LISTEN is host:port or :port (all of it after the last colon is the port)."""
+    host, sep, port = raw.rpartition(":")
+    if not sep or not port.isdigit() or not 0 < int(port) < 65536:
+        raise ValueError(f"BF_LISTEN must be host:port, e.g. 127.0.0.1:8791, got {raw!r}")
+    return host or "127.0.0.1", int(port)
+
+
 def _bool(name: str, default: bool) -> bool:
     raw = os.environ.get(name, "").strip().lower()
     return default if not raw else raw not in ("0", "false", "no", "off")
@@ -75,11 +83,10 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
-        listen = os.environ.get("BF_LISTEN", "127.0.0.1:8791")
-        host, _, port = listen.rpartition(":")
+        host, port = _listen(os.environ.get("BF_LISTEN", "").strip() or "127.0.0.1:8791")
         return cls(
-            listen_host=host or "127.0.0.1",
-            listen_port=int(port or 8791),
+            listen_host=host,
+            listen_port=port,
             shared_secret=os.environ.get("BF_SHARED_SECRET", "").strip(),
             data_dir=Path(os.environ.get("BF_DATA_DIR", "/var/lib/buildforge")),
             log_dir=Path(os.environ.get("BF_LOG_DIR", "/var/log/buildforge")),
