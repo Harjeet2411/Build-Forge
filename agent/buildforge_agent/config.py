@@ -37,6 +37,15 @@ def _regex(name: str) -> re.Pattern | None:
         raise ValueError(f"{name} is not a valid regular expression: {exc}") from None
 
 
+def _choice(name: str, default: str, allowed: tuple[str, ...]) -> str:
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    if raw not in allowed:
+        raise ValueError(f"{name} must be one of {', '.join(allowed)}, got {raw!r}")
+    return raw
+
+
 def _listen(raw: str) -> tuple[str, int]:
     """BF_LISTEN is host:port or :port (all of it after the last colon is the port)."""
     host, sep, port = raw.rpartition(":")
@@ -93,14 +102,14 @@ class Settings:
             runner_url=os.environ.get("BF_RUNNER_URL", "").strip().rstrip("/"),
             runner_secret=os.environ.get("BF_RUNNER_SECRET", "").strip(),
             runner_timeout=_int("BF_RUNNER_TIMEOUT", 300),
-            send=os.environ.get("BF_SEND", "errors").strip().lower() or "errors",
+            send=_choice("BF_SEND", "errors", ("errors", "full")),
             max_error_chars=_int("BF_MAX_ERROR_CHARS", 16000),
             teams_webhook_url=os.environ.get("TEAMS_WEBHOOK_URL", "").strip(),
             notify_on={x.strip() for x in os.environ.get("BF_NOTIFY_ON", "infrastructure").split(",") if x.strip()},
             job_include=_regex("BF_JOB_INCLUDE"),
             job_exclude=_regex("BF_JOB_EXCLUDE"),
             retention_days=_int("BF_RETENTION_DAYS", 365),
-            deck_mode=os.environ.get("BF_DECK_MODE", "fallback").strip().lower() or "fallback",
+            deck_mode=_choice("BF_DECK_MODE", "fallback", ("off", "fallback", "first")),
             deck_threshold=_float("BF_DECK_THRESHOLD", 0.55),
             deck_first_threshold=_float("BF_DECK_FIRST_THRESHOLD", 0.85),
             deck_min_seen=_int("BF_DECK_MIN_SEEN", 2),

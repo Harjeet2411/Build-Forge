@@ -71,6 +71,8 @@ class InvalidValueTest(unittest.TestCase):
             "BF_DECK_THRESHOLD": ("high", "BF_DECK_THRESHOLD must be a number, got 'high'"),
             "BF_JOB_INCLUDE": ("(payments", "BF_JOB_INCLUDE is not a valid regular expression"),
             "BF_LISTEN": ("localhost", "BF_LISTEN must be host:port"),
+            "BF_SEND": ("ful", "BF_SEND must be one of errors, full, got 'ful'"),
+            "BF_DECK_MODE": ("frist", "BF_DECK_MODE must be one of off, fallback, first, got 'frist'"),
         }
         for name, (value, message) in cases.items():
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, re.escape(message)):
