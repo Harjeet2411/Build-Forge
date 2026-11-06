@@ -70,7 +70,13 @@ def _categories(name: str, default: str) -> set[str]:
 
 def _bool(name: str, default: bool) -> bool:
     raw = os.environ.get(name, "").strip().lower()
-    return default if not raw else raw not in ("0", "false", "no", "off")
+    if not raw:
+        return default
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    if raw in ("0", "false", "no", "off"):
+        return False
+    raise ValueError(f"{name} must be on or off (also true/false, yes/no, 1/0), got {raw!r}")
 
 
 @dataclass

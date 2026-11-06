@@ -56,7 +56,7 @@ class ParsingTest(unittest.TestCase):
         for off in ("0", "false", "No", "OFF"):
             with self.subTest(off=off):
                 self.assertFalse(settings(BF_ALERTS=off).alerts)
-        for on in ("1", "true", "yes", "anything"):
+        for on in ("1", "true", "Yes", "ON"):
             with self.subTest(on=on):
                 self.assertTrue(settings(BF_ALERTS=on).alerts)
 
@@ -75,6 +75,7 @@ class InvalidValueTest(unittest.TestCase):
             "BF_LISTEN": ("localhost", "BF_LISTEN must be host:port"),
             "BF_SEND": ("ful", "BF_SEND must be one of errors, full, got 'ful'"),
             "BF_DECK_MODE": ("frist", "BF_DECK_MODE must be one of off, fallback, first, got 'frist'"),
+            "BF_ALERTS": ("flase", "BF_ALERTS must be on or off (also true/false, yes/no, 1/0), got 'flase'"),
             "BF_NOTIFY_ON": ("infrastructure,infra,app", "BF_NOTIFY_ON has unknown categories app, infra;"),
         }
         for name, (value, message) in cases.items():
