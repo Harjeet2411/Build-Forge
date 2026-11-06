@@ -54,6 +54,20 @@ def _listen(raw: str) -> tuple[str, int]:
     return host or "127.0.0.1", int(port)
 
 
+# Kiro's analysis category enum (kiro-runner/buildforge_mcp.py), plus "all" for every category
+CATEGORIES = ("application", "infrastructure", "configuration", "dependency", "test_failure", "transient", "unknown")
+
+
+def _categories(name: str, default: str) -> set[str]:
+    raw = os.environ.get(name, "").strip() or default
+    picked = {x.strip().lower() for x in raw.split(",") if x.strip()}
+    unknown = sorted(picked - set(CATEGORIES) - {"all"})
+    if unknown:
+        raise ValueError(f"{name} has unknown categories {', '.join(unknown)}; "
+                         f"use {', '.join(CATEGORIES)} or all")
+    return picked
+
+
 def _bool(name: str, default: bool) -> bool:
     raw = os.environ.get(name, "").strip().lower()
     return default if not raw else raw not in ("0", "false", "no", "off")
@@ -105,7 +119,7 @@ class Settings:
             send=_choice("BF_SEND", "errors", ("errors", "full")),
             max_error_chars=_int("BF_MAX_ERROR_CHARS", 16000),
             teams_webhook_url=os.environ.get("TEAMS_WEBHOOK_URL", "").strip(),
-            notify_on={x.strip() for x in os.environ.get("BF_NOTIFY_ON", "infrastructure").split(",") if x.strip()},
+            notify_on=_categories("BF_NOTIFY_ON", "infrastructure"),
             job_include=_regex("BF_JOB_INCLUDE"),
             job_exclude=_regex("BF_JOB_EXCLUDE"),
             retention_days=_int("BF_RETENTION_DAYS", 365),

@@ -61,7 +61,9 @@ class ParsingTest(unittest.TestCase):
                 self.assertTrue(settings(BF_ALERTS=on).alerts)
 
     def test_notify_on_list(self):
-        self.assertEqual(settings(BF_NOTIFY_ON=" infrastructure , code ,,").notify_on, {"infrastructure", "code"})
+        self.assertEqual(settings(BF_NOTIFY_ON=" Infrastructure , dependency ,,").notify_on,
+                         {"infrastructure", "dependency"})
+        self.assertEqual(settings(BF_NOTIFY_ON="all").notify_on, {"all"})
 
 
 class InvalidValueTest(unittest.TestCase):
@@ -73,6 +75,7 @@ class InvalidValueTest(unittest.TestCase):
             "BF_LISTEN": ("localhost", "BF_LISTEN must be host:port"),
             "BF_SEND": ("ful", "BF_SEND must be one of errors, full, got 'ful'"),
             "BF_DECK_MODE": ("frist", "BF_DECK_MODE must be one of off, fallback, first, got 'frist'"),
+            "BF_NOTIFY_ON": ("infrastructure,infra,app", "BF_NOTIFY_ON has unknown categories app, infra;"),
         }
         for name, (value, message) in cases.items():
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, re.escape(message)):
