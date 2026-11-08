@@ -75,6 +75,7 @@ class InvalidValueTest(unittest.TestCase):
             "BF_LISTEN": ("localhost", "BF_LISTEN must be host:port"),
             "BF_SEND": ("ful", "BF_SEND must be one of errors, full, got 'ful'"),
             "BF_DECK_MODE": ("frist", "BF_DECK_MODE must be one of off, fallback, first, got 'frist'"),
+            "BF_DECK_FIRST_THRESHOLD": ("85", "BF_DECK_FIRST_THRESHOLD must be between 0 and 1, got 85.0"),
             "BF_ALERTS": ("flase", "BF_ALERTS must be on or off (also true/false, yes/no, 1/0), got 'flase'"),
             "BF_NOTIFY_ON": ("infrastructure,infra,app", "BF_NOTIFY_ON has unknown categories app, infra;"),
         }

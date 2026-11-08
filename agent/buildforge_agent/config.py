@@ -27,6 +27,13 @@ def _float(name: str, default: float) -> float:
         raise ValueError(f"{name} must be a number, got {raw!r}") from None
 
 
+def _fraction(name: str, default: float) -> float:
+    value = _float(name, default)
+    if not 0.0 <= value <= 1.0:
+        raise ValueError(f"{name} must be between 0 and 1, got {value}")
+    return value
+
+
 def _regex(name: str) -> re.Pattern | None:
     raw = os.environ.get(name, "").strip()
     if not raw:
@@ -130,8 +137,8 @@ class Settings:
             job_exclude=_regex("BF_JOB_EXCLUDE"),
             retention_days=_int("BF_RETENTION_DAYS", 365),
             deck_mode=_choice("BF_DECK_MODE", "fallback", ("off", "fallback", "first")),
-            deck_threshold=_float("BF_DECK_THRESHOLD", 0.55),
-            deck_first_threshold=_float("BF_DECK_FIRST_THRESHOLD", 0.85),
+            deck_threshold=_fraction("BF_DECK_THRESHOLD", 0.55),
+            deck_first_threshold=_fraction("BF_DECK_FIRST_THRESHOLD", 0.85),
             deck_min_seen=_int("BF_DECK_MIN_SEEN", 2),
             alerts=_bool("BF_ALERTS", True),
             alert_prod_after=_int("BF_ALERT_PROD_AFTER", 3),
