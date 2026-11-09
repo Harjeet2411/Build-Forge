@@ -7,14 +7,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
-def _int(name: str, default: int) -> int:
+def _int(name: str, default: int, minimum: int = 0) -> int:
     raw = os.environ.get(name, "").strip()
     if not raw:
         return default
     try:
-        return int(raw)
+        value = int(raw)
     except ValueError:
         raise ValueError(f"{name} must be a whole number, got {raw!r}") from None
+    if value < minimum:
+        raise ValueError(f"{name} must be at least {minimum}, got {value}")
+    return value
 
 
 def _float(name: str, default: float) -> float:
@@ -128,9 +131,9 @@ class Settings:
             log_dir=Path(os.environ.get("BF_LOG_DIR", "/var/log/buildforge")),
             runner_url=os.environ.get("BF_RUNNER_URL", "").strip().rstrip("/"),
             runner_secret=os.environ.get("BF_RUNNER_SECRET", "").strip(),
-            runner_timeout=_int("BF_RUNNER_TIMEOUT", 300),
+            runner_timeout=_int("BF_RUNNER_TIMEOUT", 300, minimum=1),
             send=_choice("BF_SEND", "errors", ("errors", "full")),
-            max_error_chars=_int("BF_MAX_ERROR_CHARS", 16000),
+            max_error_chars=_int("BF_MAX_ERROR_CHARS", 16000, minimum=1),
             teams_webhook_url=os.environ.get("TEAMS_WEBHOOK_URL", "").strip(),
             notify_on=_categories("BF_NOTIFY_ON", "infrastructure"),
             job_include=_regex("BF_JOB_INCLUDE"),
@@ -139,7 +142,7 @@ class Settings:
             deck_mode=_choice("BF_DECK_MODE", "fallback", ("off", "fallback", "first")),
             deck_threshold=_fraction("BF_DECK_THRESHOLD", 0.55),
             deck_first_threshold=_fraction("BF_DECK_FIRST_THRESHOLD", 0.85),
-            deck_min_seen=_int("BF_DECK_MIN_SEEN", 2),
+            deck_min_seen=_int("BF_DECK_MIN_SEEN", 2, minimum=1),
             alerts=_bool("BF_ALERTS", True),
             alert_prod_after=_int("BF_ALERT_PROD_AFTER", 3),
             alert_uat_after=_int("BF_ALERT_UAT_AFTER", 5),
