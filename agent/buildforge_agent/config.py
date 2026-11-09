@@ -78,6 +78,13 @@ def _categories(name: str, default: str) -> set[str]:
     return picked
 
 
+def _url(name: str) -> str:
+    raw = os.environ.get(name, "").strip()
+    if raw and not re.match(r"^https?://[^/\s]+", raw):
+        raise ValueError(f"{name} must start with http:// or https://, e.g. http://10.0.2.15:8796, got {raw!r}")
+    return raw
+
+
 def _bool(name: str, default: bool) -> bool:
     raw = os.environ.get(name, "").strip().lower()
     if not raw:
@@ -129,12 +136,12 @@ class Settings:
             shared_secret=os.environ.get("BF_SHARED_SECRET", "").strip(),
             data_dir=Path(os.environ.get("BF_DATA_DIR", "/var/lib/buildforge")),
             log_dir=Path(os.environ.get("BF_LOG_DIR", "/var/log/buildforge")),
-            runner_url=os.environ.get("BF_RUNNER_URL", "").strip().rstrip("/"),
+            runner_url=_url("BF_RUNNER_URL").rstrip("/"),
             runner_secret=os.environ.get("BF_RUNNER_SECRET", "").strip(),
             runner_timeout=_int("BF_RUNNER_TIMEOUT", 300, minimum=1),
             send=_choice("BF_SEND", "errors", ("errors", "full")),
             max_error_chars=_int("BF_MAX_ERROR_CHARS", 16000, minimum=1),
-            teams_webhook_url=os.environ.get("TEAMS_WEBHOOK_URL", "").strip(),
+            teams_webhook_url=_url("TEAMS_WEBHOOK_URL"),
             notify_on=_categories("BF_NOTIFY_ON", "infrastructure"),
             job_include=_regex("BF_JOB_INCLUDE"),
             job_exclude=_regex("BF_JOB_EXCLUDE"),

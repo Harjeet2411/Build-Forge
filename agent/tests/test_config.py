@@ -78,6 +78,7 @@ class InvalidValueTest(unittest.TestCase):
             "BF_DECK_FIRST_THRESHOLD": ("85", "BF_DECK_FIRST_THRESHOLD must be between 0 and 1, got 85.0"),
             "BF_DECK_MIN_SEEN": ("0", "BF_DECK_MIN_SEEN must be at least 1, got 0"),
             "BF_RETENTION_DAYS": ("-30", "BF_RETENTION_DAYS must be at least 0, got -30"),
+            "BF_RUNNER_URL": ("10.0.2.15:8796", "BF_RUNNER_URL must start with http:// or https://"),
             "BF_ALERTS": ("flase", "BF_ALERTS must be on or off (also true/false, yes/no, 1/0), got 'flase'"),
             "BF_NOTIFY_ON": ("infrastructure,infra,app", "BF_NOTIFY_ON has unknown categories app, infra;"),
         }
