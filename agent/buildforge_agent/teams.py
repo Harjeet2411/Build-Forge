@@ -11,7 +11,10 @@ ICONS = {"infrastructure": "🔥", "transient": "🔁", "dependency": "📦", "c
 def incident_card(inc: dict, admin_url: str = "") -> dict:
     a = inc.get("analysis") or {}
     cat = a.get("category", "unknown")
-    title = f"{ICONS.get(cat, '⚠️')} {cat.replace('_', ' ').capitalize()} failure: {inc['job']} #{inc['build']}"
+    label = cat.replace("_", " ").capitalize()
+    if not label.endswith(" failure"):  # "test_failure" already says it
+        label += " failure"
+    title = f"{ICONS.get(cat, '⚠️')} {label}: {inc['job']} #{inc['build']}"
     facts = [
         {"title": "Entry", "value": inc["id"]},
         {"title": "Stage", "value": inc.get("stage") or "-"},
