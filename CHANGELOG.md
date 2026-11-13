@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- The agent now checks its settings at start-up and names the variable that is wrong: an unknown send or deck mode, a Teams alert
+  category that is not one of the known ones, an on/off setting that is neither, a `BF_DECK_THRESHOLD` or `BF_DECK_FIRST_THRESHOLD`
+  outside 0-1, a negative count, a zero `BF_RUNNER_TIMEOUT`, and a `BF_RUNNER_URL` or `TEAMS_WEBHOOK_URL` that is not http(s).
+- Teams cards no longer title a test failure "Test failure failure".
+- `python -m buildforge_agent extract` exits with 2 and a message for a log file that cannot be read, and `show` exits with 1 when the incident has no log.
+- More tests: the `check` command, the runner client, the command line and the export helpers.
+
 ## 2.2.1 - 2026-10-24
 
 - New logo: a brushed-steel diamond plate with rivets and a green gem-cut tick (docs/branding). Replaces the hexagon mark; the old
